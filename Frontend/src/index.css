@@ -1,0 +1,20 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+:root{--void:#030306;--cy:#00F0FF;--em:#10B981;--rose:#FF2A85;--amb:#F59E0B}
+body{background:radial-gradient(ellipse at 50% 0,#090D16,#030306 70%);color:#fff;font-family:Inter,sans-serif}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:99;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+h1,h2,h3{font-family:Syne,sans-serif;letter-spacing:-.04em}
+.num{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.glass{background:rgba(12,15,24,.55);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.08);border-top-color:rgba(255,255,255,.12);border-radius:18px}
+.muted{color:#94A3B8}
+.spot{position:relative;overflow:hidden}
+.spot::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;background:radial-gradient(260px circle at var(--mouse-x,50%) var(--mouse-y,50%),var(--cy),transparent 60%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.glitch{position:relative;display:inline-block}
+.glitch::before,.glitch::after{content:attr(data-t);position:absolute;inset:0;opacity:0}
+.glitch::before{color:var(--cy)}.glitch::after{color:var(--rose)}
+.glitch.on::before{animation:gl 180ms steps(3) 1;transform:translateX(-2px)}
+.glitch.on::after{animation:gl 180ms steps(3) 1 reverse;transform:translateX(2px)}
+@keyframes gl{0%{opacity:.9;clip-path:inset(10% 0 60% 0)}50%{opacity:.9;clip-path:inset(55% 0 15% 0)}100%{opacity:0;clip-path:inset(0)}}
+@keyframes mq{to{transform:translateX(-50%)}}
+.sheen::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.08) 50%,transparent 60%);transform:translateX(-120%);animation:sh 5s infinite}
+@keyframes sh{to{transform:translateX(120%)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
