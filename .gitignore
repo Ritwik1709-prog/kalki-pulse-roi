@@ -1,0 +1,25 @@
+# Dependencies & Virtual Environments
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Raw archives, datasets & model binaries (reproducible via pipeline)
+*.zip
+data_science/data/raw/**/*.csv
+data_science/data/processed/*.parquet
+data_science/models/*.onnx
+
+# Local databases & env secrets
+*.db
+.env
+.env.*
+!.env.example
+
+# Build & tooling artifacts
+dist/
+.playwright-mcp/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db

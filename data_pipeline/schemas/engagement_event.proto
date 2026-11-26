@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package influencer.analytics.v1;
+
+// Proposed event format for the first-review technical design.
+// This schema has not yet been integrated with a running Kafka pipeline.
+message EngagementEvent {
+  string event_id = 1;
+  string influencer_id = 2;
+  string platform = 3;
+  string timestamp = 4; // ISO 8601 UTC timestamp
+  int64 likes_delta = 5;
+  int64 comments_delta = 6;
+  int64 shares_delta = 7;
+  double estimated_sentiment = 8; // proposed range: -1.0 to 1.0
+}

@@ -1,0 +1,10 @@
+{
+  "event_id": "evt_0001",
+  "influencer_id": "alexfit_089",
+  "platform": "Instagram",
+  "timestamp": "2026-11-14T10:30:00Z",
+  "likes_delta": 620,
+  "comments_delta": 94,
+  "shares_delta": 43,
+  "estimated_sentiment": 0.85
+}

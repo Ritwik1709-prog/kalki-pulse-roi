@@ -1,0 +1,96 @@
+{
+  "trained_at": "2026-11-26T03:19:51.902487+00:00",
+  "training_rows": 404507,
+  "test_rows": 101127,
+  "models": {
+    "ctr": {
+      "model_file": "ctr_model.onnx",
+      "test_r2": 0.8093,
+      "test_mae": 0.0215,
+      "test_rmse": 0.0377,
+      "parity_max_abs_diff": 0.0,
+      "parity_mean_abs_diff": 0.0,
+      "onnx_latency_mean_ms": 0.0222,
+      "onnx_latency_p95_ms": 0.0253,
+      "onnx_latency_p99_ms": 0.0323,
+      "sub_5ms_verified": true,
+      "onnx_size_kb": 670.5
+    },
+    "conversion": {
+      "model_file": "conversion_model.onnx",
+      "test_r2": 0.6683,
+      "test_mae": 0.0372,
+      "test_rmse": 0.0539,
+      "parity_max_abs_diff": 0.0,
+      "parity_mean_abs_diff": 0.0,
+      "onnx_latency_mean_ms": 0.0217,
+      "onnx_latency_p95_ms": 0.0278,
+      "onnx_latency_p99_ms": 0.044,
+      "sub_5ms_verified": true,
+      "onnx_size_kb": 686.9
+    },
+    "roi": {
+      "model_file": "roi_model.onnx",
+      "test_r2": 0.6722,
+      "test_mae": 96.7651,
+      "test_rmse": 137.6503,
+      "parity_max_abs_diff": 0.000793,
+      "parity_mean_abs_diff": 0.000107,
+      "onnx_latency_mean_ms": 0.0254,
+      "onnx_latency_p95_ms": 0.0473,
+      "onnx_latency_p99_ms": 0.0967,
+      "sub_5ms_verified": true,
+      "onnx_size_kb": 692.9
+    }
+  },
+  "shap_importances": [
+    {
+      "feature": "campaign_cost",
+      "label": "Allocated Campaign Budget",
+      "mean_abs_shap": 138.3565,
+      "importance_pct": 50.2
+    },
+    {
+      "feature": "impressions",
+      "label": "Reach / Impressions Volume",
+      "mean_abs_shap": 62.9548,
+      "importance_pct": 22.8
+    },
+    {
+      "feature": "engagement_score",
+      "label": "Engagement Velocity Score",
+      "mean_abs_shap": 46.3444,
+      "importance_pct": 16.8
+    },
+    {
+      "feature": "source_platform_idx",
+      "label": "Marketplace Platform",
+      "mean_abs_shap": 24.7742,
+      "importance_pct": 9.0
+    },
+    {
+      "feature": "category_idx",
+      "label": "Beauty / Product Category",
+      "mean_abs_shap": 1.1333,
+      "importance_pct": 0.4
+    },
+    {
+      "feature": "channel_used_idx",
+      "label": "Distribution Channel",
+      "mean_abs_shap": 0.8481,
+      "importance_pct": 0.3
+    },
+    {
+      "feature": "duration_days",
+      "label": "Campaign Duration (Days)",
+      "mean_abs_shap": 0.6964,
+      "importance_pct": 0.3
+    },
+    {
+      "feature": "campaign_type_idx",
+      "label": "Campaign Format",
+      "mean_abs_shap": 0.569,
+      "importance_pct": 0.2
+    }
+  ]
+}

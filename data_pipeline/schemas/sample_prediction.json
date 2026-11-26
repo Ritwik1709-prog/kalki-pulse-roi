@@ -1,0 +1,15 @@
+{
+  "case_type": "illustrative_scenario_not_trained_model_output",
+  "influencer_id": "alexfit_089",
+  "followers": 850000,
+  "campaign_spend_usd": 10000,
+  "product_price_usd": 120,
+  "estimated_reach": 310000,
+  "predicted_ctr": 0.038,
+  "estimated_visits": 11780,
+  "estimated_purchases": 259,
+  "estimated_revenue_usd": 31080,
+  "estimated_cpc_usd_per_visit_proxy": 0.8489,
+  "estimated_roi_percent": 210.8,
+  "note": "Visits are used as a clicks proxy ONLY for this worked example; production CPC requires measured or predicted ad clicks. ROI uses campaign spend as cost and does not account for additional costs."
+}
