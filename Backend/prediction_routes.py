@@ -81,7 +81,8 @@ def predict_roi(
                     campaign_budget, product_price, estimated_reach, predicted_ctr_pct,
                     store_visits, predicted_conversions, expected_gross_revenue, cpc,
                     net_roi_percent, inference_latency_ms, decision_tier, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
                 """,
                 (
                     current_user.id,
@@ -103,7 +104,7 @@ def predict_roi(
                     created_at,
                 ),
             )
-            result["prediction_id"] = cursor.lastrowid
+            result["prediction_id"] = cursor.fetchone()["id"]
             result["created_at"] = created_at
 
     return result
@@ -268,7 +269,7 @@ def get_prediction_history(
                    store_visits, predicted_conversions, expected_gross_revenue, cpc,
                    net_roi_percent, inference_latency_ms, decision_tier, created_at
             FROM prediction_history
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY id DESC
             LIMIT 25
             """,

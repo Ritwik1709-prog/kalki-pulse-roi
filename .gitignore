@@ -5,11 +5,10 @@ __pycache__/
 .venv/
 venv/
 
-# Raw archives, datasets & model binaries (reproducible via pipeline)
+# Raw archives & datasets (reproducible via pipeline)
 *.zip
 data_science/data/raw/**/*.csv
 data_science/data/processed/*.parquet
-data_science/models/*.onnx
 
 # Local databases & env secrets
 *.db

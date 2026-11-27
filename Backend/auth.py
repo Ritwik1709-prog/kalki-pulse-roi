@@ -118,7 +118,7 @@ def get_current_user(
             """
             SELECT id, full_name, brand_name, role, email, created_at
             FROM users
-            WHERE id = ?
+            WHERE id = %s
             """,
             (user_id,),
         ).fetchone()
@@ -142,7 +142,7 @@ def signup(payload: SignupRequest) -> AuthResponse:
 
     with get_db() as conn:
         existing = conn.execute(
-            "SELECT id FROM users WHERE lower(email) = ?",
+            "SELECT id FROM users WHERE lower(email) = %s",
             (normalized_email,),
         ).fetchone()
         if existing is not None:
@@ -156,16 +156,17 @@ def signup(payload: SignupRequest) -> AuthResponse:
         cursor = conn.execute(
             """
             INSERT INTO users (full_name, brand_name, role, email, hashed_password, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (full_name, brand_name, payload.role, normalized_email, hashed, created_at),
         )
-        user_id = cursor.lastrowid
+        user_id = cursor.fetchone()["id"]
         row = conn.execute(
             """
             SELECT id, full_name, brand_name, role, email, created_at
             FROM users
-            WHERE id = ?
+            WHERE id = %s
             """,
             (user_id,),
         ).fetchone()
@@ -185,7 +186,7 @@ def login(payload: LoginRequest) -> AuthResponse:
             """
             SELECT id, full_name, brand_name, role, email, hashed_password, created_at
             FROM users
-            WHERE lower(email) = ?
+            WHERE lower(email) = %s
             """,
             (normalized_email,),
         ).fetchone()

@@ -20,7 +20,7 @@ import { ArrowRight, BadgeCheck, Drill, Glasses, Hammer, LayoutGrid, Library, Pa
 import type { LucideIcon } from 'lucide-react'
 
 // Joins the truthy class names; the block's classes are passed through untouched
-const cn = (...classes: Array< string | false | null | undefined >) => classes.filter(Boolean).join(' ')
+const cn = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
 
 /* ------------------------------ Props ------------------------------ */
 
@@ -32,7 +32,7 @@ type ProjectType = ResolvedProject
 /** Built-in icon names accepted by the icon props; any lucide-react icon component works as well */
 export type ForgeIconName = 'drill' | 'hammer' | 'ruler' | 'wrench' | 'glasses' | 'layout-grid' | 'panel-top' | 'scissors' | 'library'
 
-const ICONS: Record< ForgeIconName, LucideIcon > = {
+const ICONS: Record<ForgeIconName, LucideIcon> = {
   drill: Drill,
   hammer: Hammer,
   ruler: Ruler,
@@ -83,12 +83,12 @@ export interface ForgeProject {
   title: [string, string, string]
 }
 
-type ResolvedCategory = Omit< ForgeCategory, 'icon' > & { icon: LucideIcon }
-type ResolvedProject = Omit< ForgeProject, 'icon' > & { icon: LucideIcon }
+type ResolvedCategory = Omit<ForgeCategory, 'icon'> & { icon: LucideIcon }
+type ResolvedProject = Omit<ForgeProject, 'icon'> & { icon: LucideIcon }
 
 export interface ForgeNav {
   /** Primary links; a link with menu: true opens the Categories dropdown */
-  links: Array< { label: string; href: string; menu?: boolean } >
+  links: Array<{ label: string; href: string; menu?: boolean }>
   /** The search form's action and placeholder */
   search: { action: string; placeholder: string }
   /** Account icon link */
@@ -224,11 +224,11 @@ export interface ForgeProps {
   /** Hero copy. Default: empty */
   copy?: ForgeCopy
   /** Categories by id, listed in the Categories dropdown in categoryOrder. Default: none */
-  categories?: Record< CategoryId, ForgeCategory >
+  categories?: Record<CategoryId, ForgeCategory>
   /** The order the Categories dropdown lists them in. Default: none */
   categoryOrder?: CategoryId[]
   /** The tools lying on the bench, by id. Default: none */
-  tools?: Record< ToolId, ForgeTool >
+  tools?: Record<ToolId, ForgeTool>
   /** The jobs offered as tabs. The hero is not rendered without at least one. Default: none */
   projects?: ForgeProject[]
   /** Id of the job the hero opens on. Default: the first project */
@@ -236,15 +236,15 @@ export interface ForgeProps {
   /** The bench photo. Omit to render no photo */
   boardImage?: ForgeBoardImage
   /** Colour roles; any subset overrides the original palette */
-  theme?: Partial< ForgeTheme >
+  theme?: Partial<ForgeTheme>
   /** Splash dials; any subset overrides the originals */
-  splash?: Partial< ForgeSplash >
+  splash?: Partial<ForgeSplash>
   /** Bench intro dials; any subset overrides the originals */
-  intro?: Partial< ForgeIntro >
+  intro?: Partial<ForgeIntro>
   /** Bench lamp and lift dials; any subset overrides the originals */
-  boardOptions?: Partial< ForgeBoardOptions >
+  boardOptions?: Partial<ForgeBoardOptions>
   /** WebGL backdrop dials; any subset overrides the originals */
-  shader?: Partial< ForgeShader >
+  shader?: Partial<ForgeShader>
   /** Forces reduced motion on or off; by default the visitor's prefers-reduced-motion setting is used */
   reducedMotion?: boolean
   /** Extra classes for the root element */
@@ -298,9 +298,9 @@ interface ForgeContextValue {
   BRAND: { name: string; href: string }
   NAV: ForgeNav
   COPY: ForgeCopy
-  CATEGORIES: Record< CategoryId, ResolvedCategory >
+  CATEGORIES: Record<CategoryId, ResolvedCategory>
   CATEGORY_ORDER: CategoryId[]
-  TOOLS: Record< ToolId, ForgeTool >
+  TOOLS: Record<ToolId, ForgeTool>
   TOOL_IDS: ToolId[]
   toolImage: (id: ToolId) => string
   PROJECTS: ResolvedProject[]
@@ -313,7 +313,7 @@ interface ForgeContextValue {
   REDUCED: boolean | undefined
 }
 
-const ForgeContext = createContext< ForgeContextValue | null >(null)
+const ForgeContext = createContext<ForgeContextValue | null>(null)
 
 const useForge = () => {
   const value = useContext(ForgeContext)
@@ -356,7 +356,7 @@ type OpeningType = {
   open: () => void
 }
 
-const OpeningContext = createContext< OpeningType >({ opened: true, open: () => {} })
+const OpeningContext = createContext<OpeningType>({ opened: true, open: () => { } })
 
 /**
  * The splash sits at the root, above the sticky nav, while the hero it opens lives inside main;
@@ -551,14 +551,14 @@ const WorkshopLight = ({ reduceMotion, finePointer, lit }: WorkshopLightProps) =
   const { INTRO, SHADER } = useForge()
 
   // Refs
-  const canvasRef = useRef< HTMLCanvasElement >(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   /**
    * Read by the render loop rather than passed to the setup effect, so a flag settling after hydration
    * or the window opening never tears down and recompiles the WebGL program
    */
   const flagsRef = useRef({ reduceMotion, finePointer, lit })
-  const syncRef = useRef<() => void>(() => {})
+  const syncRef = useRef<() => void>(() => { })
 
   useEffect(() => {
     flagsRef.current = { reduceMotion, finePointer, lit }
@@ -571,27 +571,27 @@ const WorkshopLight = ({ reduceMotion, finePointer, lit }: WorkshopLightProps) =
     if (!canvas) return
 
     const flags = flagsRef
-    let teardown = () => {}
+    let teardown = () => { }
 
     // Builds everything the beam needs; run again if the browser restores a lost context
     const setup = () => {
       const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'low-power' })
 
-      if (!gl) return () => {}
+      if (!gl) return () => { }
 
       const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX)
       const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT)
       const program = gl.createProgram()
       const vao = gl.createVertexArray()
 
-      if (!vertex || !fragment || !program) return () => {}
+      if (!vertex || !fragment || !program) return () => { }
 
       gl.attachShader(program, vertex)
       gl.attachShader(program, fragment)
       gl.linkProgram(program)
 
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        return () => {}
+        return () => { }
       }
 
       gl.useProgram(program)
@@ -733,7 +733,7 @@ const WorkshopLight = ({ reduceMotion, finePointer, lit }: WorkshopLightProps) =
 
       return () => {
         stop()
-        syncRef.current = () => {}
+        syncRef.current = () => { }
         resizeObserver.disconnect()
         viewObserver.disconnect()
         document.removeEventListener('visibilitychange', sync)
@@ -750,7 +750,7 @@ const WorkshopLight = ({ reduceMotion, finePointer, lit }: WorkshopLightProps) =
     const handleLost = (event: Event) => {
       event.preventDefault()
       teardown()
-      teardown = () => {}
+      teardown = () => { }
     }
 
     const handleRestored = () => {
@@ -915,11 +915,11 @@ const ProjectPicker = ({ active, tool, onPick, onPeek }: ProjectPickerProps) => 
   const activeIndex = PROJECTS.findIndex(project => project.id === active)
 
   // Pointing at the chosen job ends any preview; pointing at another one previews it
-  const handlePointerEnter = (event: ReactPointerEvent< HTMLButtonElement >, id: ProjectId) => {
+  const handlePointerEnter = (event: ReactPointerEvent<HTMLButtonElement>, id: ProjectId) => {
     if (event.pointerType === 'mouse') onPeek(id === active ? null : id)
   }
 
-  const handleKeyDown = (event: ReactKeyboardEvent< HTMLDivElement >) => {
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
 
     if (!step) return
@@ -1152,7 +1152,7 @@ const KitBoard = ({ project, kit, preview, active, finePointer, reduceMotion, on
   } as CSSProperties
 
   // Refs
-  const boardRef = useRef< HTMLDivElement >(null)
+  const boardRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef(0)
   const lampRef = useRef({ x: BOARD.lampRest.x, y: BOARD.lampRest.y })
 
@@ -1177,7 +1177,7 @@ const KitBoard = ({ project, kit, preview, active, finePointer, reduceMotion, on
   }
 
   // The lamp follows the pointer through two CSS variables, so moving it never renders React
-  const handlePointerMove = (event: ReactPointerEvent< HTMLDivElement >) => {
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!finePointer || reduceMotion) return
 
     const rect = event.currentTarget.getBoundingClientRect()
@@ -1220,27 +1220,27 @@ const KitBoard = ({ project, kit, preview, active, finePointer, reduceMotion, on
          * sliver of opacity rather than none, so the browser can count it as the largest paint early
          */}
         {ASSETS.board && (
-        <m.img
-          initial={
-            INTRO.enabled && !reduceMotion
-              ? { opacity: 0.01, scale: INTRO.scale, filter: `blur(${INTRO.blur}px)` }
-              : false
-          }
-          animate={
-            opened || !INTRO.enabled
-              ? { opacity: 1, scale: 1, filter: 'blur(0px)' }
-              : { opacity: 0.01, scale: INTRO.scale, filter: `blur(${INTRO.blur}px)` }
-          }
-          transition={{ delay: INTRO.delay, duration: reduceMotion ? 0.4 : INTRO.reveal, ease: EASE_OUT }}
-          src={ASSETS.board.large}
-          srcSet={`${ASSETS.board.small} 960w, ${ASSETS.board.large} 1600w`}
-          sizes='(min-width: 1024px) 55vw, calc(100vw - 104px)'
-          alt={ASSETS.board.alt}
-          width={ASSETS.board.width}
-          height={ASSETS.board.height}
-          decoding='async'
-          className='fg-bench-photo absolute inset-0 size-full object-cover'
-        />
+          <m.img
+            initial={
+              INTRO.enabled && !reduceMotion
+                ? { opacity: 0.01, scale: INTRO.scale, filter: `blur(${INTRO.blur}px)` }
+                : false
+            }
+            animate={
+              opened || !INTRO.enabled
+                ? { opacity: 1, scale: 1, filter: 'blur(0px)' }
+                : { opacity: 0.01, scale: INTRO.scale, filter: `blur(${INTRO.blur}px)` }
+            }
+            transition={{ delay: INTRO.delay, duration: reduceMotion ? 0.4 : INTRO.reveal, ease: EASE_OUT }}
+            src={ASSETS.board.large}
+            srcSet={`${ASSETS.board.small} 960w, ${ASSETS.board.large} 1600w`}
+            sizes='(min-width: 1024px) 55vw, calc(100vw - 104px)'
+            alt={ASSETS.board.alt}
+            width={ASSETS.board.width}
+            height={ASSETS.board.height}
+            decoding='async'
+            className='fg-bench-photo absolute inset-0 size-full object-cover'
+          />
         )}
 
         {/* Everything the job doesn't need falls into shadow; the kit is drawn back on top at full light */}
@@ -1497,7 +1497,7 @@ const sparksFor = (seed: number, count: number) =>
     }
   })
 
-type SparkType = ReturnType< typeof sparksFor >[number]
+type SparkType = ReturnType<typeof sparksFor>[number]
 
 /**
  * One spark thrown from its strike: a single compositor animation of opacity and transform, held at its
@@ -1505,8 +1505,8 @@ type SparkType = ReturnType< typeof sparksFor >[number]
  */
 const Spark = ({ spark, at, go }: { spark: SparkType; at: number; go: boolean }) => {
   // Refs
-  const sparkRef = useRef< HTMLSpanElement >(null)
-  const animationRef = useRef< Animation | null >(null)
+  const sparkRef = useRef<HTMLSpanElement>(null)
+  const animationRef = useRef<Animation | null>(null)
 
   useEffect(() => {
     const node = sparkRef.current
@@ -1561,14 +1561,14 @@ const ForgeSplash = () => {
   const { BRAND, COPY, SPLASH } = useForge()
 
   // States
-  const [stage, setStage] = useState< Stage >('dark')
+  const [stage, setStage] = useState<Stage>('dark')
 
   // Refs
-  const rootRef = useRef< HTMLDivElement >(null)
-  const wordRef = useRef< HTMLDivElement >(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wordRef = useRef<HTMLDivElement>(null)
   const shakeX = useMotionValue(0)
   const openedRef = useRef(false)
-  const skipRef = useRef<() => void>(() => {})
+  const skipRef = useRef<() => void>(() => { })
 
   // Hooks
   const reduceMotion = useReducedPreference()
@@ -1581,7 +1581,7 @@ const ForgeSplash = () => {
   const go = stage === 'forge' || stage === 'handoff'
 
   useEffect(() => {
-    const root = rootRef.current?.closest< HTMLElement >('.fg-root')
+    const root = rootRef.current?.closest<HTMLElement>('.fg-root')
     const timers: number[] = []
     const later = (seconds: number, run: () => void) => timers.push(window.setTimeout(run, seconds * 1000))
 
@@ -1634,7 +1634,7 @@ const ForgeSplash = () => {
 
       handed = true
       const word = wordRef.current
-      const logo = root?.querySelector< HTMLElement >('.fg-logo')
+      const logo = root?.querySelector<HTMLElement>('.fg-logo')
 
       setStage('handoff')
       open()
@@ -1761,13 +1761,13 @@ const ForgeSplash = () => {
                 animate={
                   go
                     ? {
-                        opacity: 1,
-                        y: ['-0.32em', '0em', '0em'],
-                        scaleY: [1.1, 0.82, 1],
-                        scaleX: [0.94, 1.14, 1],
-                        color: COOLING,
-                        textShadow: GLOW
-                      }
+                      opacity: 1,
+                      y: ['-0.32em', '0em', '0em'],
+                      scaleY: [1.1, 0.82, 1],
+                      scaleX: [0.94, 1.14, 1],
+                      color: COOLING,
+                      textShadow: GLOW
+                    }
                     : { opacity: 0 }
                 }
                 transition={{
@@ -1900,7 +1900,7 @@ const CategoriesMenu = () => {
   const [open, setOpen] = useState(false)
 
   // Refs
-  const rootRef = useRef< HTMLLIElement >(null)
+  const rootRef = useRef<HTMLLIElement>(null)
   const timer = useRef(0)
 
   useEffect(() => {
@@ -1955,7 +1955,7 @@ const CategoriesMenu = () => {
   }
 
   // Tabbing out of the menu closes it
-  const handleBlur = (event: FocusEvent< HTMLLIElement >) => {
+  const handleBlur = (event: FocusEvent<HTMLLIElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
   }
 
@@ -2008,8 +2008,8 @@ const SearchField = () => {
   const [query, setQuery] = useState('')
 
   // Refs
-  const inputRef = useRef< HTMLInputElement >(null)
-  const buttonRef = useRef< HTMLButtonElement >(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Hooks
   const reduceMotion = useReducedMotion()
@@ -2018,7 +2018,7 @@ const SearchField = () => {
     if (open) inputRef.current?.focus()
   }, [open])
 
-  const handleSubmit = (event: FormEvent< HTMLFormElement >) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (!open) {
       event.preventDefault()
       setOpen(true)
@@ -2034,7 +2034,7 @@ const SearchField = () => {
     if (!query) setOpen(false)
   }
 
-  const handleKeyDown = (event: ReactKeyboardEvent< HTMLInputElement >) => {
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Escape') return
 
     setQuery('')
@@ -2101,12 +2101,12 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
 
   // Refs
-  const headerRef = useRef< HTMLElement >(null)
+  const headerRef = useRef<HTMLElement>(null)
 
   // The hero tucks under the bar by exactly its height, so the real height is written where the hero reads it
   useEffect(() => {
     const header = headerRef.current
-    const root = header?.closest< HTMLElement >('.fg-root')
+    const root = header?.closest<HTMLElement>('.fg-root')
 
     if (!header || !root) return
 
@@ -2291,10 +2291,10 @@ const HeroSection = () => {
   const { PROJECTS, DEFAULT_PROJECT, INTRO } = useForge()
 
   // States
-  const [projectId, setProjectId] = useState< ProjectId >(DEFAULT_PROJECT)
-  const [kit, setKit] = useState< ToolId[] >(PROJECTS.find(item => item.id === DEFAULT_PROJECT)?.tools ?? [])
-  const [active, setActive] = useState< ToolId | null >(null)
-  const [peek, setPeek] = useState< ProjectId | null >(null)
+  const [projectId, setProjectId] = useState<ProjectId>(DEFAULT_PROJECT)
+  const [kit, setKit] = useState<ToolId[]>(PROJECTS.find(item => item.id === DEFAULT_PROJECT)?.tools ?? [])
+  const [active, setActive] = useState<ToolId | null>(null)
+  const [peek, setPeek] = useState<ProjectId | null>(null)
 
   // Hooks
 

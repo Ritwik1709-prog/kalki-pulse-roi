@@ -10,15 +10,24 @@ export default function Navbar() {
   const location = useLocation()
   const { isAuthenticated, user, logout } = useAuth()
 
+  const scrollToElement = (id: string) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    const lenis = (window as unknown as { __lenis?: { scrollTo: (t: HTMLElement, o?: { offset?: number; duration?: number }) => void } }).__lenis
+    if (lenis) {
+      lenis.scrollTo(el, { offset: -16, duration: 1.35 })
+    } else {
+      el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
   const goToSection = (id: string) => {
     if (location.pathname !== '/') {
       nav('/')
-      window.setTimeout(() => {
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
+      window.setTimeout(() => scrollToElement(id), 120)
       return
     }
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+    scrollToElement(id)
   }
 
   const handleLogout = () => {
@@ -62,9 +71,10 @@ export default function Navbar() {
         ) : (
           <>
             {[
-              ['Purpose', 'purpose'],
-              ['Architecture & Goals', 'goals'],
+              ['Creator Audit', 'purpose'],
+              ['ROI Simulator', 'goals'],
               ['Benefits', 'benefits'],
+              ['Pricing', 'pricing'],
             ].map(([label, id]) => (
               <a
                 key={id}
@@ -78,13 +88,6 @@ export default function Navbar() {
                 {label}
               </a>
             ))}
-            <button
-              type="button"
-              onClick={() => nav('/data-pipeline')}
-              className="hover:text-white cursor-pointer transition-colors whitespace-nowrap"
-            >
-              Data Cleaning Lab
-            </button>
           </>
         )}
       </nav>

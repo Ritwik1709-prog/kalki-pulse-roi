@@ -15,15 +15,15 @@ const PARTNER_PODS: PlatformPod[] = [
   {
     id: 'nykaa',
     metric: '₹1,450 AOV',
-    sub: '1.18× Skincare Multiplier',
+    sub: 'Skincare & Beauty',
     logo: <NykaaLogo className="h-4" />,
     thumb: '/brands/nykaa-editorial.webp',
     accent: '#FC2779'
   },
   {
     id: 'tira',
-    metric: '1.05× Multiplier',
-    sub: 'Luxury Makeup Baseline',
+    metric: '₹2,800 AOV',
+    sub: 'Luxury Makeup',
     logo: <TiraLogo className="h-4" />,
     thumb: '/brands/tira-store-hero.webp',
     accent: '#E5C483'
@@ -31,43 +31,41 @@ const PARTNER_PODS: PlatformPod[] = [
   {
     id: 'purplle',
     metric: '3.82% Conv. Rate',
-    sub: '0.94× Haircare Multiplier',
+    sub: 'Haircare & Daily',
     logo: <PurplleLogo className="h-4" />,
     thumb: '/brands/purplle-campaign.jpg',
     accent: '#C084FC'
   },
   {
-    id: 'kafka',
-    label: 'APACHE KAFKA',
-    metric: '<5ms Ingestion',
-    sub: 'Protobuf Stream Validation',
+    id: 'youtube',
+    label: 'YOUTUBE & SHORTS',
+    metric: 'Live Discovery',
+    sub: 'Creator Performance Audit',
     accent: '#00F0FF'
   },
   {
-    id: 'redis',
-    label: 'REDIS CLUSTER',
-    metric: '0.8ms Lookup',
-    sub: 'Sliding Feature Velocity',
+    id: 'protection',
+    label: 'AUDIENCE QUALITY',
+    metric: 'Bot Shield',
+    sub: 'Authentic Reach Verification',
     accent: '#EF4444'
   },
   {
-    id: 'onnx',
-    label: 'ONNX RUNTIME',
-    metric: 'Sub-50ms SLA',
-    sub: 'XGBoost Hardware Tree Core',
+    id: 'forecast',
+    label: 'ROI FORECAST',
+    metric: 'Pre-Spend',
+    sub: 'Revenue & Order Projection',
     accent: '#10B981'
   }
 ]
 
-const QUANT_SIGNALS = [
-  'SHAP GAME-THEORETIC ATTRIBUTION ACTIVE',
-  'NYKAA CART-CONVERSION CORRELATION: 0.94',
-  'IQR BOT-ANOMALY SPIKE PRUNING: -18.4% FLAGGED',
-  'TIRA LUXURY BASKET VELOCITY MAPPED',
-  'NLP COMMENT BUYER-INTENT VELOCITY: 0.89',
-  'PURPLLE D2C HISTORICAL CONVERSION CURVES',
-  'REAL-TIME PROTOBUF INGESTION ACTIVE',
-  'HARDWARE TENSOR ACCELERATION READY'
+const SIGNALS = [
+  'VERIFIED CREATOR AUDIENCE DISCOVERY',
+  'REAL-TIME BUYER INTENT DETECTION',
+  'PRE-CAMPAIGN REVENUE FORECASTING',
+  'BOT & FAKE ENGAGEMENT PROTECTION',
+  'D2C BEAUTY MARKETPLACE BENCHMARKS',
+  'DETERMINISTIC CAMPAIGN ROI'
 ]
 
 export default function TelemetryMarquee() {
@@ -77,7 +75,7 @@ export default function TelemetryMarquee() {
       <div className="flex items-center justify-center gap-3 mb-7 px-6">
         <span className="flex size-2 rounded-full bg-cyan-400 animate-pulse" />
         <span className="num text-[11px] font-semibold tracking-[0.28em] text-cyan-300 uppercase">
-          CALIBRATED WITH REAL D2C BEAUTY COMMERCE TELEMETRY
+          BUILT FOR HIGH-GROWTH D2C &amp; BEAUTY BRANDS
         </span>
       </div>
 
@@ -91,7 +89,7 @@ export default function TelemetryMarquee() {
             'linear-gradient(90deg, transparent 0%, rgba(0,0,0,1) 12%, rgba(0,0,0,1) 88%, transparent 100%)'
         }}
       >
-        {/* Row 1: High-End Partner & Platform Pods */}
+        {/* Row 1: Channel & Capability Pods */}
         <div className="flex w-max space-x-4" style={{ animation: 'mq 45s linear infinite' }}>
           {[...PARTNER_PODS, ...PARTNER_PODS].map((pod, i) => (
             <div
@@ -133,12 +131,12 @@ export default function TelemetryMarquee() {
           ))}
         </div>
 
-        {/* Row 2: Mathematical / Architecture Stream */}
+        {/* Row 2: Customer Value Signals */}
         <div
           className="flex w-max space-x-6 text-slate-400"
           style={{ animation: 'mq 55s linear infinite reverse' }}
         >
-          {[...QUANT_SIGNALS, ...QUANT_SIGNALS].map((sig, i) => (
+          {[...SIGNALS, ...SIGNALS].map((sig, i) => (
             <div key={i} className="flex items-center gap-3 num text-[11.5px] tracking-[0.2em] uppercase">
               <span className="text-cyan-400/60 font-mono">✦</span>
               <span className="hover:text-white transition-colors duration-200">{sig}</span>

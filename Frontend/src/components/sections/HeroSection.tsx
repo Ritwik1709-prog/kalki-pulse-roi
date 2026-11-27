@@ -6,12 +6,20 @@ import MagneticButton from "../ui/MagneticButton";
 import CipherNumber from "../ui/CipherNumber";
 
 const EV = [
-  "@alexfit_089 | IG | +620 likes | sentiment: 0.85 | 14,240 evt/s",
-  "@glowbyria | YT | +1.2K views | sentiment: 0.91 | 13,870 evt/s",
-  "@makeupmira | IG | +310 shares | sentiment: 0.78 | 15,102 evt/s",
+  "@glowbyria | YouTube Shorts | +1.2K views | High Buyer Intent",
+  "@skincarestudio | YouTube | +640 likes | Verified Reach",
+  "@beautybyananya | YouTube Shorts | +310 comments | Strong Conversion",
 ];
 
-export default function HeroSection({ spike }: { spike: number }) {
+export default function HeroSection({
+  spike,
+  revealed = true,
+  coreActive = true,
+}: {
+  spike: number;
+  revealed?: boolean;
+  coreActive?: boolean;
+}) {
   const nav = useNavigate();
   const [k, setK] = useState(0);
 
@@ -21,34 +29,55 @@ export default function HeroSection({ spike }: { spike: number }) {
   }, []);
 
   return (
-    <section className="relative h-screen overflow-hidden">
-      <NeuralRoiCore spike={spike} />
+    <section id="hero-section" className="hero-section relative h-screen overflow-hidden">
+      <NeuralRoiCore spike={spike} active={coreActive} />
 
-      <div className="relative z-10 h-full flex flex-col justify-center px-6 md:px-16 max-w-5xl pointer-events-none [&_*]:pointer-events-auto">
+      <div
+        className="relative z-10 h-full flex flex-col justify-center px-6 md:px-16 max-w-5xl pointer-events-none [&_*]:pointer-events-auto"
+        style={{
+          opacity: revealed ? 1 : 0,
+          transform: revealed ? "translate3d(0, 0, 0)" : "translate3d(0, 16px, 0)",
+          transition:
+            "opacity 1300ms cubic-bezier(0.22, 1, 0.36, 1) 250ms, transform 1400ms cubic-bezier(0.16, 1, 0.3, 1) 250ms",
+          willChange: "opacity, transform",
+        }}
+      >
         <span className="num text-xs text-cyan-300 mb-6 flex items-center gap-2">
           <span className="size-1.5 rounded-full bg-cyan-400 animate-ping opacity-75" />
-          XGBOOST + ONNX RUNTIME • &lt;50MS REAL-TIME INFERENCE
+          CREATOR ROI INTELLIGENCE PLATFORM
         </span>
 
-        <h1 className="font-extrabold tracking-tight text-[clamp(2.75rem,6.8vw,5.75rem)] leading-[0.98] select-none">
-          <span className="block text-white drop-shadow-[0_2px_18px_rgba(255,255,255,0.12)]">
+        <h1 className="font-maison text-[clamp(2.9rem,7.2vw,6.15rem)] leading-[0.96] select-none">
+          <span className="block text-white font-semibold drop-shadow-[0_2px_18px_rgba(255,255,255,0.14)]">
             DECODE INFLUENCE
           </span>
-          <span className="block mt-2 sm:mt-3 bg-clip-text text-transparent bg-gradient-to-r from-[#00F0FF] via-[#38BDF8] to-[#10B981] drop-shadow-[0_0_35px_rgba(0,240,255,0.35)]">
+          <span className="block mt-2 sm:mt-3 font-semibold italic bg-clip-text text-transparent bg-gradient-to-r from-[#00F0FF] via-[#38BDF8] to-[#10B981] drop-shadow-[0_0_35px_rgba(0,240,255,0.35)]">
             <GlitchText>PREDICT EXACT ROI</GlitchText>
           </span>
         </h1>
 
         <p className="muted max-w-xl mt-6 text-base md:text-lg leading-relaxed text-slate-300/80">
-          The high-frequency AI decision engine that fuses real-time social engagement velocity, NLP buyer-intent sentiment, and historical Nykaa, Tira & Purplle conversion baselines to forecast exact revenue before you spend a rupee.
+          Know every creator&apos;s true commercial impact and forecast campaign revenue before you spend a rupee.
         </p>
 
         <div className="flex gap-4 mt-8">
           <MagneticButton onClick={() => nav("/auth")}>
-            Launch ROI Dashboard
+            Start Subscription
           </MagneticButton>
-          <MagneticButton primary={false} onClick={() => nav("/data-pipeline")}>
-            Inspect Data Pipeline
+          <MagneticButton
+            primary={false}
+            onClick={() => {
+              const el = document.getElementById("goals");
+              if (!el) return;
+              const lenis = (window as unknown as { __lenis?: { scrollTo: (t: HTMLElement, o?: { offset?: number; duration?: number }) => void } }).__lenis;
+              if (lenis) {
+                lenis.scrollTo(el, { offset: -16, duration: 1.35 });
+              } else {
+                el.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
+          >
+            Try ROI Simulator
           </MagneticButton>
         </div>
       </div>
@@ -67,7 +96,7 @@ export default function HeroSection({ spike }: { spike: number }) {
           <CipherNumber value="+210.8%" />
         </div>
         <div className="num text-xs muted mt-2">
-          Est. Reach: 310,000 · ONNX Latency: 4.1ms
+          Est. Reach: 310,000 · Verified Forecast
         </div>
         <svg viewBox="0 0 100 24" className="mt-2">
           <polyline

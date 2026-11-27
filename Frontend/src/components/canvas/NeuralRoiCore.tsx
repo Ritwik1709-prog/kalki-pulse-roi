@@ -12,8 +12,10 @@ function Core() {
   const g = useRef<THREE.Group>(null);
   useFrame(({ pointer, camera }, dt) => {
     if (!g.current) return;
-    g.current.rotation.x += dt * 0.18;
-    g.current.rotation.y += dt * 0.26;
+    // Clamp dt so a slow tab/frame never causes a sudden rotation jump
+    const step = Math.min(dt, 0.05);
+    g.current.rotation.x += step * 0.18;
+    g.current.rotation.y += step * 0.26;
     const k = matchMedia("(prefers-reduced-motion:reduce)").matches ? 0 : 1;
     camera.position.x += (pointer.x * 0.9 * k - camera.position.x) * 0.04;
     camera.position.y += (pointer.y * 0.6 * k - camera.position.y) * 0.04;
@@ -41,7 +43,13 @@ function Core() {
 // -------------------------------------------------------------
 // MAIN NEURAL ROI CANVAS STAGE
 // -------------------------------------------------------------
-export default function NeuralRoiCore({ spike = 0 }: { spike?: number }) {
+export default function NeuralRoiCore({
+  spike = 0,
+  active = true,
+}: {
+  spike?: number;
+  active?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(true);
 
@@ -59,8 +67,8 @@ export default function NeuralRoiCore({ spike = 0 }: { spike?: number }) {
   return (
     <div ref={box} className="absolute inset-0">
       <Canvas
-        dpr={[1, 2]}
-        frameloop={vis ? "always" : "never"}
+        dpr={[1, 1.5]}
+        frameloop={vis && active ? "always" : "demand"}
         camera={{ position: [0, 0, 6], fov: 45 }}
       >
         <Environment preset="night" />
