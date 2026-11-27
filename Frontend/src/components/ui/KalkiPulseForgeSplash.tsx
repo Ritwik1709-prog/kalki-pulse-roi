@@ -92,14 +92,14 @@ export interface KalkiPulseForgeSplashProps {
 export default function KalkiPulseForgeSplash({
   onHandoffStart,
   onComplete,
-  word = 'KALKI Pulse',
+  word = 'KALKI PULSE',
 }: KalkiPulseForgeSplashProps) {
   const [stage, setStage] = useState<'forge' | 'exit' | 'done'>('forge')
   const shakeX = useMotionValue(0)
   const finishedRef = useRef(false)
   const timersRef = useRef<number[]>([])
 
-  const LETTERS = useMemo(() => word.split(''), [word])
+  const LETTERS = useMemo(() => word.toUpperCase().split(''), [word])
   const firstStrike = 0.28
   const strikeEvery = 0.23
   const strikeAt = (index: number) => firstStrike + index * strikeEvery
