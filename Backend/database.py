@@ -90,6 +90,8 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS prediction_history (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                session_id TEXT NOT NULL DEFAULT '',
+                expires_at TEXT NOT NULL DEFAULT '',
                 influencer_id TEXT NOT NULL,
                 social_platform TEXT NOT NULL,
                 target_channel TEXT NOT NULL,
@@ -109,6 +111,8 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute("ALTER TABLE prediction_history ADD COLUMN IF NOT EXISTS session_id TEXT NOT NULL DEFAULT ''")
+        conn.execute("ALTER TABLE prediction_history ADD COLUMN IF NOT EXISTS expires_at TEXT NOT NULL DEFAULT ''")
     seed_demo_user()
 
 

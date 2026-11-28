@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -53,6 +54,7 @@ class UserPublic(BaseModel):
     role: str
     email: EmailStr
     created_at: str
+    session_id: str = ""
 
 
 class AuthResponse(BaseModel):
@@ -61,7 +63,7 @@ class AuthResponse(BaseModel):
     user: UserPublic
 
 
-def _row_to_public_user(row: object) -> UserPublic:
+def _row_to_public_user(row: object, session_id: str = "") -> UserPublic:
     return UserPublic(
         id=row["id"],
         full_name=row["full_name"],
@@ -69,14 +71,16 @@ def _row_to_public_user(row: object) -> UserPublic:
         role=row["role"],
         email=row["email"],
         created_at=row["created_at"],
+        session_id=session_id,
     )
 
 
-def create_access_token(user: UserPublic) -> str:
-    """Issue a signed HS256 JWT expiring in ACCESS_TOKEN_EXPIRE_MINUTES."""
+def create_access_token(user: UserPublic, session_id: str) -> str:
+    """Issue a signed HS256 JWT with session_id expiring in ACCESS_TOKEN_EXPIRE_MINUTES."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user.id),
+        "sid": session_id,
         "email": user.email,
         "brand_name": user.brand_name,
         "role": user.role,
@@ -106,6 +110,7 @@ def get_current_user(
             options={"require": ["exp", "sub"]},
         )
         user_id = int(payload["sub"])
+        session_id = str(payload.get("sid") or "")
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -130,15 +135,16 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return _row_to_public_user(row)
+    return _row_to_public_user(row, session_id=session_id)
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest) -> AuthResponse:
-    """Register a new brand workspace user and return a signed JWT."""
+    """Register a new brand workspace user and return a signed JWT with a clean session."""
     normalized_email = payload.email.strip().lower()
     full_name = payload.full_name.strip()
     brand_name = payload.brand_name.strip()
+    session_id = uuid.uuid4().hex
 
     with get_db() as conn:
         existing = conn.execute(
@@ -171,15 +177,16 @@ def signup(payload: SignupRequest) -> AuthResponse:
             (user_id,),
         ).fetchone()
 
-    user = _row_to_public_user(row)
-    token = create_access_token(user)
+    user = _row_to_public_user(row, session_id=session_id)
+    token = create_access_token(user, session_id)
     return AuthResponse(access_token=token, user=user)
 
 
 @router.post("/login", response_model=AuthResponse)
 def login(payload: LoginRequest) -> AuthResponse:
-    """Verify email + Argon2 password hash and issue an HS256 JWT."""
+    """Verify email + Argon2 password hash, purge stale history, and issue a session-scoped JWT."""
     normalized_email = payload.email.strip().lower()
+    session_id = uuid.uuid4().hex
 
     with get_db() as conn:
         row = conn.execute(
@@ -191,21 +198,24 @@ def login(payload: LoginRequest) -> AuthResponse:
             (normalized_email,),
         ).fetchone()
 
-    if row is None:
-        password_hash.verify(payload.password, _DUMMY_HASH)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
-        )
+        if row is None:
+            password_hash.verify(payload.password, _DUMMY_HASH)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password.",
+            )
 
-    if not password_hash.verify(payload.password, row["hashed_password"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
-        )
+        if not password_hash.verify(payload.password, row["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password.",
+            )
 
-    user = _row_to_public_user(row)
-    token = create_access_token(user)
+        # Clean slate on every login: purge old/expired prediction history for this user
+        conn.execute("DELETE FROM prediction_history WHERE user_id = %s", (row["id"],))
+
+    user = _row_to_public_user(row, session_id=session_id)
+    token = create_access_token(user, session_id)
     return AuthResponse(access_token=token, user=user)
 
 

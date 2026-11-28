@@ -1,4 +1,4 @@
-"""Dual-mode sub-millisecond Velocity Feature Store (Redis + Thread-Safe In-Memory Fallback)."""
+"""Dual-mode sub-millisecond Velocity Feature Store (Redis + Thread-Safe In-Memory Live Store)."""
 
 from __future__ import annotations
 
@@ -9,18 +9,12 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 try:
     import redis  # type: ignore
 except ImportError:
     redis = None  # type: ignore
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-PROTO_CSV_PATH = ROOT_DIR / "data_science" / "data" / "raw" / "prototype" / "influencer_marketing_roi_dataset.csv"
 
 
 @dataclass
@@ -37,57 +31,35 @@ class CreatorRecord:
     events: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=120))
     total_events: int = 0
     bot_flagged_events: int = 0
-    data_source: str = "protobuf_replay"
+    data_source: str = "youtube_api_v3"
+    is_simulated: bool = False
     video_id: str | None = None
+    channel_id: str | None = None
     video_title: str | None = None
     channel_title: str | None = None
     real_views: int = 0
     real_likes: int = 0
     real_comments: int = 0
+    median_recent_views: int = 0
     latest_delta_views: int = 0
     latest_delta_likes: int = 0
     recent_comments: list[dict[str, Any]] = field(default_factory=list)
-
-
-CURATED_CREATORS: list[dict[str, Any]] = [
-    {
-        "influencer_id": "@diya_skincare",
-        "display_name": "Diya Nair",
-        "platform": "YouTube",
-        "niche": "Skincare",
-        "followers": 540000,
-        "likes_per_min": 410.0,
-        "comments_per_min": 88.0,
-        "shares_per_min": 39.0,
-        "sentiment": 0.88,
-    },
-    {
-        "influencer_id": "@rohan_grooming",
-        "display_name": "Rohan Kapoor",
-        "platform": "YouTube",
-        "niche": "Haircare",
-        "followers": 420000,
-        "likes_per_min": 295.0,
-        "comments_per_min": 52.0,
-        "shares_per_min": 24.0,
-        "sentiment": 0.79,
-    },
-    {
-        "influencer_id": "@meera_glam",
-        "display_name": "Meera Hegde",
-        "platform": "YouTube Shorts",
-        "niche": "Makeup",
-        "followers": 690000,
-        "likes_per_min": 640.0,
-        "comments_per_min": 82.0,
-        "shares_per_min": 74.0,
-        "sentiment": 0.86,
-    },
-]
+    # Real creator verification & sponsorship metadata
+    detected_niche: str = "General"
+    is_beauty_creator: bool = False
+    ad_readiness_score: int = 0
+    sponsored_video_count: int = 0
+    recent_videos_scanned: int = 0
+    sponsorship_rate_pct: float = 0.0
+    detected_brand_mentions: list[str] = field(default_factory=list)
+    sample_sponsored_videos: list[dict[str, Any]] = field(default_factory=list)
+    video_ids_analyzed: list[str] = field(default_factory=list)
+    bot_audit: dict[str, Any] = field(default_factory=dict)
+    youtube_synced_at: str = ""
 
 
 class VelocityFeatureStore:
-    """Tracks rolling 1-hour social engagement velocity and sentiment per creator."""
+    """Tracks rolling 1-hour live social engagement velocity, sentiment & creator verification."""
 
     def __init__(self, redis_url: str | None = None) -> None:
         self._lock = threading.RLock()
@@ -96,6 +68,9 @@ class VelocityFeatureStore:
         self._watched_creator_id: str | None = None
         self._redis_client: Any = None
         self.backend_mode = "in_memory_sliding_window"
+        self.live_feed_status: str = "initializing"
+        self.live_feed_error: str | None = None
+        self.last_polled_at: str | None = None
 
         url = redis_url or os.getenv("REDIS_URL")
         if url and redis is not None:
@@ -108,112 +83,16 @@ class VelocityFeatureStore:
                 self._redis_client = None
                 self.backend_mode = "in_memory_sliding_window"
 
-        self._seed_initial_creators()
+    def set_live_status(self, status: str, error: str | None = None) -> None:
+        with self._lock:
+            self.live_feed_status = status
+            self.live_feed_error = error
+            if status == "live":
+                self.last_polled_at = datetime.now(timezone.utc).isoformat()
 
-    def _seed_initial_creators(self) -> None:
-        now_ts = time.time()
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        for item in CURATED_CREATORS:
-            cid = item["influencer_id"]
-            rec = CreatorRecord(
-                influencer_id=cid,
-                display_name=item["display_name"],
-                platform=item["platform"],
-                niche=item["niche"],
-                followers=item["followers"],
-                base_likes_per_min=item["likes_per_min"],
-                base_comments_per_min=item["comments_per_min"],
-                base_shares_per_min=item["shares_per_min"],
-                base_sentiment=item["sentiment"],
-                total_events=12,
-            )
-            # Pre-populate 12 historical points so live charts draw immediately
-            for step in range(12):
-                jitter = 0.88 + ((step * 7) % 5) * 0.06
-                pt = {
-                    "event_id": f"seed_{cid}_{step}",
-                    "influencer_id": cid,
-                    "platform": item["platform"],
-                    "ts": now_ts - (11 - step) * 4.0,
-                    "time_label": datetime.fromtimestamp(now_ts - (11 - step) * 4.0, tz=timezone.utc).strftime("%H:%M:%S"),
-                    "timestamp": now_iso,
-                    "likes_delta": round(item["likes_per_min"] * jitter),
-                    "comments_delta": round(item["comments_per_min"] * jitter),
-                    "shares_delta": round(item["shares_per_min"] * jitter),
-                    "estimated_sentiment": round(min(0.98, item["sentiment"] * (0.95 + (step % 3) * 0.03)), 3),
-                    "is_bot_spike": False,
-                }
-                rec.events.append(pt)
-            self._creators[cid] = rec
-            self._global_ticker.append(rec.events[-1])
-
-        # Augment with real sampled profiles from Prototyping dataset if present
-        if PROTO_CSV_PATH.exists():
-            try:
-                df = pd.read_csv(PROTO_CSV_PATH, nrows=60)
-                seen_combos: set[tuple[str, str]] = set()
-                idx = 0
-                for _, row in df.iterrows():
-                    plat_raw = str(row.get("platform", "YouTube")).strip()
-                    if "tiktok" in plat_raw.lower():
-                        plat = "YouTube Shorts"
-                    elif "youtube" in plat_raw.lower():
-                        plat = "YouTube"
-                    else:
-                        continue
-                    cat = str(row.get("influencer_category", "Beauty"))
-                    combo = (plat, cat)
-                    if combo in seen_combos:
-                        continue
-                    seen_combos.add(combo)
-                    idx += 1
-                    plat_slug = "ys" if plat == "YouTube Shorts" else plat.lower()[:2]
-                    cid = f"@{cat.lower().replace(' ', '_')}_{plat_slug}_{idx:02d}"
-                    if cid in self._creators:
-                        continue
-                    reach = int(row.get("estimated_reach", 250000))
-                    eng = int(row.get("engagements", 18000))
-                    dur = max(1, int(row.get("campaign_duration_days", 14)))
-                    lpm = max(45.0, min(950.0, round(eng / (dur * 18.0), 1)))
-                    cpm = max(8.0, round(lpm * 0.14, 1))
-                    spm = max(4.0, round(lpm * 0.08, 1))
-                    sent = round(0.65 + (idx % 5) * 0.05, 2)
-                    rec = CreatorRecord(
-                        influencer_id=cid,
-                        display_name=f"{cat} Creator ({plat})",
-                        platform=plat,
-                        niche=cat,
-                        followers=max(25000, reach),
-                        base_likes_per_min=lpm,
-                        base_comments_per_min=cpm,
-                        base_shares_per_min=spm,
-                        base_sentiment=min(0.95, sent),
-                        total_events=6,
-                    )
-                    for step in range(6):
-                        rec.events.append(
-                            {
-                                "event_id": f"proto_{cid}_{step}",
-                                "influencer_id": cid,
-                                "platform": plat,
-                                "ts": now_ts - (5 - step) * 4.0,
-                                "time_label": datetime.fromtimestamp(
-                                    now_ts - (5 - step) * 4.0, tz=timezone.utc
-                                ).strftime("%H:%M:%S"),
-                                "timestamp": now_iso,
-                                "likes_delta": round(lpm),
-                                "comments_delta": round(cpm),
-                                "shares_delta": round(spm),
-                                "estimated_sentiment": rec.base_sentiment,
-                                "is_bot_spike": False,
-                            }
-                        )
-                    self._creators[cid] = rec
-                    if len(self._creators) >= 12:
-                        break
-            except Exception:
-                pass
+    def has_creator(self, influencer_id: str) -> bool:
+        with self._lock:
+            return influencer_id in self._creators
 
     def record_event(
         self,
@@ -228,35 +107,42 @@ class VelocityFeatureStore:
         estimated_sentiment: float,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Ingest a decoded Protobuf EngagementEvent into the 1-hour sliding window."""
+        """Ingest a live decoded Protobuf EngagementEvent into the 1-hour sliding window."""
         now_ts = time.time()
         meta = metadata or {}
-        data_source = str(meta.get("data_source", "protobuf_replay"))
-        norm_platform = "YouTube Shorts" if "tiktok" in platform.lower() else (platform or "YouTube")
-        is_bot_spike = (
-            data_source == "protobuf_replay"
-            and (likes_delta > 3500 or (shares_delta > 0 and likes_delta / max(shares_delta, 1) > 95))
-        )
+        data_source = str(meta.get("data_source", "youtube_api_v3"))
+        norm_platform = "YouTube Shorts" if "shorts" in platform.lower() else (platform or "YouTube")
 
-        # Lightweight instantaneous projected ROI signal for smooth live Recharts tracking
-        short_mult = 1.12 if norm_platform == "YouTube Shorts" else (1.04 if norm_platform == "YouTube" else 1.0)
-        live_roi_pct = round(
-            max(
-                -45.0,
-                min(
-                    8500.0,
-                    (120.0 + (likes_delta * 1.45 + shares_delta * 5.2) * max(0.25, estimated_sentiment + 0.35))
-                    * short_mult,
-                ),
-            ),
-            1,
+        bot_audit = meta.get("bot_audit") if isinstance(meta.get("bot_audit"), dict) else {}
+        bot_anomaly_val = float(meta.get("bot_anomaly_ratio") or bot_audit.get("bot_anomaly_ratio") or 0.0)
+        real_views = int(meta.get("views") or 0)
+        real_likes = int(meta.get("likes") or 0)
+        is_bot_spike = bool(
+            bot_anomaly_val >= 0.25
+            or (real_views > 0 and (real_likes / max(1, real_views)) > 0.35)
         )
 
         views_delta_val = int(meta.get("real_delta_views") or 0)
         likes_delta_real = int(meta.get("real_delta_likes") or 0)
-        source_tag = str(
-            meta.get("platform_key")
-            or ("youtube_api_v3" if data_source == "youtube_api_v3" else "protobuf_replay")
+        source_tag = str(meta.get("platform_key") or data_source)
+
+        detected_niche = str(meta.get("detected_niche") or meta.get("niche") or "General")
+        is_beauty = bool(meta.get("is_beauty_creator", detected_niche in {"Skincare", "Makeup", "Haircare", "Fragrance"}))
+
+        # Lightweight live velocity indicator (niche-aware, bounded)
+        niche_factor = 1.0 if is_beauty else 0.15
+        short_mult = 1.08 if norm_platform == "YouTube Shorts" else 1.0
+        live_roi_pct = round(
+            max(
+                -95.0,
+                min(
+                    350.0,
+                    (-45.0 + (likes_delta * 0.42 + shares_delta * 1.4) * max(0.25, estimated_sentiment + 0.3))
+                    * short_mult
+                    * niche_factor,
+                ),
+            ),
+            1,
         )
 
         entry = {
@@ -276,6 +162,7 @@ class VelocityFeatureStore:
             "source_tag": source_tag,
             "is_bot_spike": is_bot_spike,
             "data_source": data_source,
+            "is_simulated": False,
             "video_id": meta.get("video_id"),
             "video_title": meta.get("video_title"),
             "latest_comment": meta.get("latest_comment"),
@@ -288,30 +175,40 @@ class VelocityFeatureStore:
             if rec is None:
                 rec = CreatorRecord(
                     influencer_id=influencer_id,
-                    display_name=str(meta.get("channel_title") or influencer_id.lstrip("@").replace("_", " ").title()),
+                    display_name=str(meta.get("channel_title") or influencer_id.lstrip("@")),
                     platform=norm_platform,
-                    niche=str(meta.get("niche") or "Skincare"),
-                    followers=int(meta.get("estimated_reach") or 350000),
-                    base_likes_per_min=max(20.0, float(likes_delta)),
-                    base_comments_per_min=max(4.0, float(comments_delta)),
-                    base_shares_per_min=max(2.0, float(shares_delta)),
+                    niche=detected_niche,
+                    detected_niche=detected_niche,
+                    is_beauty_creator=is_beauty,
+                    followers=int(meta.get("subscriber_count") or meta.get("estimated_reach") or 0),
+                    base_likes_per_min=max(1.0, float(likes_delta)),
+                    base_comments_per_min=max(0.0, float(comments_delta)),
+                    base_shares_per_min=max(0.0, float(shares_delta)),
                     base_sentiment=float(estimated_sentiment),
+                    data_source=data_source,
+                    is_simulated=False,
                 )
                 self._creators[influencer_id] = rec
 
             if meta:
                 rec.data_source = data_source
+                rec.is_simulated = False
                 rec.platform = norm_platform
+                rec.niche = detected_niche
+                rec.detected_niche = detected_niche
+                rec.is_beauty_creator = is_beauty
                 if meta.get("video_id"):
                     rec.video_id = str(meta["video_id"])
+                if meta.get("channel_id"):
+                    rec.channel_id = str(meta["channel_id"])
                 if meta.get("video_title"):
                     rec.video_title = str(meta["video_title"])
                 if meta.get("channel_title"):
                     rec.channel_title = str(meta["channel_title"])
                     rec.display_name = str(meta["channel_title"])
-                if meta.get("niche"):
-                    rec.niche = str(meta["niche"])
-                if meta.get("estimated_reach"):
+                if meta.get("subscriber_count") is not None and int(meta["subscriber_count"]) > 0:
+                    rec.followers = int(meta["subscriber_count"])
+                elif meta.get("estimated_reach"):
                     rec.followers = int(meta["estimated_reach"])
                 if meta.get("views") is not None:
                     rec.real_views = int(meta["views"])
@@ -319,12 +216,36 @@ class VelocityFeatureStore:
                     rec.real_likes = int(meta["likes"])
                 if meta.get("comments_count") is not None:
                     rec.real_comments = int(meta["comments_count"])
+                if meta.get("median_recent_views") is not None:
+                    rec.median_recent_views = int(meta["median_recent_views"])
+                elif rec.median_recent_views == 0 and rec.real_views > 0:
+                    rec.median_recent_views = rec.real_views
                 if meta.get("real_delta_views") is not None:
                     rec.latest_delta_views = int(meta["real_delta_views"])
                 if meta.get("real_delta_likes") is not None:
                     rec.latest_delta_likes = int(meta["real_delta_likes"])
                 if meta.get("recent_comments"):
                     rec.recent_comments = list(meta["recent_comments"])
+                if meta.get("ad_readiness_score") is not None:
+                    rec.ad_readiness_score = int(meta["ad_readiness_score"])
+                if meta.get("sponsored_video_count") is not None:
+                    rec.sponsored_video_count = int(meta["sponsored_video_count"])
+                if meta.get("recent_videos_scanned") is not None:
+                    rec.recent_videos_scanned = int(meta["recent_videos_scanned"])
+                if meta.get("sponsorship_rate_pct") is not None:
+                    rec.sponsorship_rate_pct = float(meta["sponsorship_rate_pct"])
+                if meta.get("detected_brand_mentions") is not None:
+                    rec.detected_brand_mentions = list(meta["detected_brand_mentions"])
+                if meta.get("sample_sponsored_videos") is not None:
+                    rec.sample_sponsored_videos = list(meta["sample_sponsored_videos"])
+                if meta.get("video_ids_analyzed") is not None:
+                    rec.video_ids_analyzed = list(meta["video_ids_analyzed"])
+                if meta.get("bot_audit") is not None:
+                    rec.bot_audit = dict(meta["bot_audit"])
+                if meta.get("youtube_synced_at"):
+                    rec.youtube_synced_at = str(meta["youtube_synced_at"])
+                else:
+                    rec.youtube_synced_at = timestamp
 
             rec.events.append(entry)
             rec.total_events += 1
@@ -334,7 +255,7 @@ class VelocityFeatureStore:
 
             # Prune events older than 1 hour (3600s)
             cutoff = now_ts - 3600.0
-            while len(rec.events) > 12 and rec.events[0]["ts"] < cutoff:
+            while len(rec.events) > 1 and rec.events[0]["ts"] < cutoff:
                 rec.events.popleft()
 
         if self._redis_client is not None:
@@ -350,39 +271,24 @@ class VelocityFeatureStore:
 
         return entry
 
-    def get_live_features(self, influencer_id: str) -> dict[str, Any]:
-        """Return <1ms rolling aggregates and recent chart points for a creator."""
+    def get_live_features(self, influencer_id: str) -> dict[str, Any] | None:
+        """Return <1ms rolling aggregates and verification metadata for a live creator."""
         t0 = time.perf_counter()
         with self._lock:
             rec = self._creators.get(influencer_id)
             if rec is None:
-                # Provide deterministic baseline for free-text custom handles
-                return {
-                    "influencer_id": influencer_id,
-                    "display_name": influencer_id.lstrip("@").replace("_", " ").title() or "Custom Creator",
-                    "platform": "YouTube",
-                    "niche": "Skincare",
-                    "followers": 310000,
-                    "likes_per_min": 380.0,
-                    "comments_per_min": 62.0,
-                    "shares_per_min": 31.0,
-                    "rolling_sentiment": 0.82,
-                    "total_events": 1,
-                    "bot_anomaly_ratio": 0.02,
-                    "history": [],
-                    "lookup_latency_ms": round((time.perf_counter() - t0) * 1000.0, 4),
-                    "store_mode": self.backend_mode,
-                }
+                return None
 
             recent = list(rec.events)
-            # Filter anomalous bot bursts when computing verified velocity averages
             clean_events = [e for e in recent if not e.get("is_bot_spike")] or recent
-            n = len(clean_events)
-            likes_pm = sum(e["likes_delta"] for e in clean_events) / max(1, n)
-            comments_pm = sum(e["comments_delta"] for e in clean_events) / max(1, n)
-            shares_pm = sum(e["shares_delta"] for e in clean_events) / max(1, n)
-            sentiment = sum(e["estimated_sentiment"] for e in clean_events) / max(1, n)
-            bot_ratio = rec.bot_flagged_events / max(1, rec.total_events)
+            n = max(1, len(clean_events))
+            likes_pm = sum(e["likes_delta"] for e in clean_events) / n
+            comments_pm = sum(e["comments_delta"] for e in clean_events) / n
+            shares_pm = sum(e["shares_delta"] for e in clean_events) / n
+            sentiment = sum(e["estimated_sentiment"] for e in clean_events) / n
+            audit_bot_ratio = float(rec.bot_audit.get("bot_anomaly_ratio", 0.0) or 0.0)
+            event_bot_ratio = rec.bot_flagged_events / max(1, rec.total_events)
+            bot_ratio = max(audit_bot_ratio, event_bot_ratio)
 
             history = [
                 {
@@ -392,7 +298,7 @@ class VelocityFeatureStore:
                     "comments_per_min": e["comments_delta"],
                     "views_delta": e.get("views_delta", 0),
                     "sentiment": e["estimated_sentiment"],
-                    "live_roi_pct": e.get("live_roi_pct", round(120.0 + e["likes_delta"] * 1.4, 1)),
+                    "live_roi_pct": e.get("live_roi_pct", 0.0),
                     "source_tag": e.get("source_tag", rec.data_source),
                     "is_bot_spike": e["is_bot_spike"],
                 }
@@ -403,22 +309,38 @@ class VelocityFeatureStore:
                 "influencer_id": rec.influencer_id,
                 "display_name": rec.display_name,
                 "platform": rec.platform,
-                "niche": rec.niche,
+                "niche": rec.detected_niche,
+                "detected_niche": rec.detected_niche,
+                "is_beauty_creator": rec.is_beauty_creator,
+                "ad_readiness_score": rec.ad_readiness_score,
+                "sponsored_video_count": rec.sponsored_video_count,
+                "sponsored_videos_detected": rec.sponsored_video_count,
+                "recent_videos_scanned": rec.recent_videos_scanned,
+                "sponsorship_rate_pct": rec.sponsorship_rate_pct,
+                "detected_brand_mentions": list(rec.detected_brand_mentions),
+                "sample_sponsored_videos": list(rec.sample_sponsored_videos),
+                "sponsored_video_examples": list(rec.sample_sponsored_videos),
                 "followers": rec.followers,
+                "median_recent_views": rec.median_recent_views or rec.real_views,
                 "likes_per_min": round(likes_pm, 1),
                 "comments_per_min": round(comments_pm, 1),
                 "shares_per_min": round(shares_pm, 1),
                 "rolling_sentiment": round(sentiment, 3),
                 "total_events": rec.total_events,
                 "bot_anomaly_ratio": round(bot_ratio, 4),
+                "bot_audit": dict(rec.bot_audit),
                 "history": history,
                 "time_series": history,
                 "lookup_latency_ms": round((time.perf_counter() - t0) * 1000.0, 4),
                 "store_mode": self.backend_mode,
                 "data_source": rec.data_source,
+                "is_simulated": False,
                 "video_id": rec.video_id,
+                "channel_id": rec.channel_id,
                 "video_title": rec.video_title,
                 "channel_title": rec.channel_title,
+                "video_ids_analyzed": list(rec.video_ids_analyzed),
+                "youtube_synced_at": rec.youtube_synced_at,
                 "real_views": rec.real_views,
                 "real_likes": rec.real_likes,
                 "real_comments": rec.real_comments,
@@ -428,61 +350,100 @@ class VelocityFeatureStore:
             }
 
     def set_watched_creator(self, influencer_id: str) -> None:
-        """Remember the currently inspected creator so 1.5s pulse updates track it cleanly."""
+        """Remember the currently inspected creator."""
         with self._lock:
             self._watched_creator_id = influencer_id
 
-    def get_watched_snapshot_params(self) -> dict[str, Any] | None:
-        """Return latest velocity + metadata for the watched creator (used by 1.5s pulse loop)."""
+    def get_verified_beauty_creators(self, *, exclude_id: str | None = None) -> list[dict[str, Any]]:
+        """Return live-ingested verified beauty creators ranked by ad_readiness_score and engagement."""
         with self._lock:
-            cid = self._watched_creator_id
-            if not cid or cid not in self._creators:
-                # Default to first live YouTube creator if available
-                cid = next(
-                    (k for k, v in self._creators.items() if v.data_source == "youtube_api_v3"),
-                    None,
+            ids = list(self._creators.keys())
+        out: list[dict[str, Any]] = []
+        for cid in ids:
+            if exclude_id and cid == exclude_id:
+                continue
+            feat = self.get_live_features(cid)
+            if not feat:
+                continue
+            if feat.get("is_beauty_creator"):
+                out.append(
+                    {
+                        "influencer_id": feat["influencer_id"],
+                        "display_name": feat["display_name"],
+                        "platform": feat["platform"],
+                        "detected_niche": feat["detected_niche"],
+                        "ad_readiness_score": feat["ad_readiness_score"],
+                        "sponsored_video_count": feat["sponsored_video_count"],
+                        "detected_brand_mentions": feat["detected_brand_mentions"],
+                        "median_recent_views": feat["median_recent_views"],
+                    }
                 )
-            if not cid:
-                return None
-            rec = self._creators[cid]
-            last_ev = rec.events[-1] if rec.events else None
-            return {
-                "influencer_id": rec.influencer_id,
-                "platform": rec.platform,
-                "data_source": rec.data_source,
-                "video_id": rec.video_id,
-                "video_title": rec.video_title,
-                "channel_title": rec.channel_title,
-                "niche": rec.niche,
-                "estimated_reach": rec.followers,
-                "views": rec.real_views,
-                "likes": rec.real_likes,
-                "comments_count": rec.real_comments,
-                "real_delta_views": rec.latest_delta_views,
-                "real_delta_likes": rec.latest_delta_likes,
-                "recent_comments": list(rec.recent_comments),
-                "latest_comment": rec.recent_comments[0]["text"] if rec.recent_comments else "",
-                "likes_base": last_ev["likes_delta"] if last_ev else rec.base_likes_per_min,
-                "comments_base": last_ev["comments_delta"] if last_ev else rec.base_comments_per_min,
-                "shares_base": last_ev["shares_delta"] if last_ev else rec.base_shares_per_min,
-                "sentiment": last_ev["estimated_sentiment"] if last_ev else rec.base_sentiment,
-            }
+        out.sort(
+            key=lambda x: (x["ad_readiness_score"], x["sponsored_video_count"], x["median_recent_views"]),
+            reverse=True,
+        )
+        return out[:5]
 
     def get_creator_telemetry(self, influencer_id: str) -> dict[str, Any]:
-        """Return 30-point sliding time series, rolling metrics, and recent events for 1.5s polling."""
+        """Return 30-point sliding time series, rolling metrics, and recent YT comments."""
         self.set_watched_creator(influencer_id)
         feat = self.get_live_features(influencer_id)
         with self._lock:
             ticker = list(self._global_ticker)[:20]
-        youtube_live_active = any(
-            c.data_source == "youtube_api_v3" for c in self._creators.values()
-        )
+            youtube_live_active = any(
+                c.data_source == "youtube_api_v3" for c in self._creators.values()
+            )
+            feed_status = self.live_feed_status
+            feed_error = self.live_feed_error
+
+        if feat is None:
+            return {
+                "influencer_id": influencer_id,
+                "found": False,
+                "platform": "YouTube",
+                "data_source": "youtube_api_v3",
+                "is_simulated": False,
+                "store_mode": self.backend_mode,
+                "youtube_live_active": youtube_live_active,
+                "live_feed_status": feed_status,
+                "live_feed_error": feed_error,
+                "time_series": [],
+                "rolling_metrics": {
+                    "likes_per_min": 0,
+                    "comments_per_min": 0,
+                    "shares_per_min": 0,
+                    "rolling_sentiment": 0,
+                    "bot_anomaly_ratio": 0,
+                    "real_views": 0,
+                    "real_likes": 0,
+                    "real_comments": 0,
+                    "latest_delta_views": 0,
+                    "latest_delta_likes": 0,
+                    "lookup_latency_ms": 0.0,
+                },
+                "recent_comments": [],
+                "recent_events": ticker,
+            }
+
         return {
             "influencer_id": feat["influencer_id"],
+            "found": True,
             "platform": feat["platform"],
-            "data_source": feat.get("data_source", "protobuf_replay"),
+            "data_source": feat["data_source"],
+            "is_simulated": False,
             "store_mode": self.backend_mode,
             "youtube_live_active": youtube_live_active,
+            "live_feed_status": feed_status,
+            "live_feed_error": feed_error,
+            "detected_niche": feat["detected_niche"],
+            "is_beauty_creator": feat["is_beauty_creator"],
+            "ad_readiness_score": feat["ad_readiness_score"],
+            "sponsored_video_count": feat["sponsored_video_count"],
+            "sponsorship_rate_pct": feat["sponsorship_rate_pct"],
+            "detected_brand_mentions": feat["detected_brand_mentions"],
+            "sample_sponsored_videos": feat["sample_sponsored_videos"],
+            "bot_audit": feat["bot_audit"],
+            "youtube_synced_at": feat["youtube_synced_at"],
             "time_series": feat["history"],
             "rolling_metrics": {
                 "likes_per_min": feat["likes_per_min"],
@@ -505,19 +466,36 @@ class VelocityFeatureStore:
         }
 
     def list_creators_feed(self) -> dict[str, Any]:
-        """Return all tracked creators with current rolling telemetry and recent ticker events."""
+        """Return all live-ingested creators with rolling telemetry and recent ticker events."""
         with self._lock:
             ids = list(self._creators.keys())
             ticker = list(self._global_ticker)[:20]
-        creators = [self.get_live_features(cid) for cid in ids]
-        # Surface live YouTube & YouTube Shorts API v3 creators first, then Instagram/dataset profiles
-        creators.sort(key=lambda c: 0 if c.get("data_source") == "youtube_api_v3" else 1)
-        youtube_live = [c for c in creators if c.get("data_source") == "youtube_api_v3"]
+            feed_status = self.live_feed_status
+            feed_error = self.live_feed_error
+            last_polled = self.last_polled_at
+
+        creators = [c for cid in ids if (c := self.get_live_features(cid)) is not None]
+        creators.sort(
+            key=lambda c: (
+                0 if c.get("is_beauty_creator") else 1,
+                -int(c.get("ad_readiness_score", 0)),
+                -int(c.get("median_recent_views", 0)),
+            )
+        )
+        youtube_api_configured = bool(os.getenv("YOUTUBE_API_KEY"))
         return {
             "store_mode": self.backend_mode,
-            "ingestion_mode": os.getenv("INGESTION_MODE", "embedded_replay"),
-            "youtube_live_active": bool(youtube_live),
-            "youtube_videos_tracked": len(youtube_live),
+            "ingestion_mode": "live",
+            "youtube_api_configured": youtube_api_configured,
+            "youtube_live_active": bool(creators) and youtube_api_configured,
+            "live_feed_status": feed_status if youtube_api_configured else "live_feed_unavailable",
+            "live_feed_error": (
+                feed_error
+                if youtube_api_configured
+                else "YOUTUBE_API_KEY is not configured. Live YouTube feed unavailable."
+            ),
+            "last_polled_at": last_polled,
+            "youtube_videos_tracked": len(creators),
             "creators": creators,
             "ticker": ticker,
         }

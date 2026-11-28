@@ -18,28 +18,33 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpRight,
+  BadgeCheck,
   BarChart3,
   Bell,
   BriefcaseBusiness,
+  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   Cpu,
   Database,
   Download,
+  ExternalLink,
   Filter,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Moon,
   Radio,
+  RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   Sun,
+  Trash2,
   TrendingUp,
   Users,
   X,
+  XCircle,
   Youtube,
   Zap,
 } from 'lucide-react'
@@ -60,6 +65,7 @@ import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import '@fontsource-variable/manrope'
 import { NykaaLogo, PurplleLogo, TiraLogo } from './PartnerLogos'
+import KalkiPulseLogo from './KalkiPulseLogo'
 import { useAuth } from '../../context/AuthContext'
 
 export interface GlassyDashboardProps {
@@ -112,11 +118,42 @@ interface YouTubeChannelSummary {
   }>
 }
 
+interface SponsoredVideoExample {
+  video_id: string
+  video_title: string
+  url: string
+  platform: string
+  views: number
+  matched_signals: string[]
+  brand_mentions: string[]
+}
+
+interface BotAuditSummary {
+  bot_anomaly_ratio: number
+  duplicate_comment_ratio?: number
+  spam_comment_count?: number
+  engagement_to_view_pct?: number
+  view_velocity_anomaly?: boolean
+  audit_summary?: string
+  audited_at?: string
+}
+
 interface CreatorFeature {
   influencer_id: string
   display_name: string
   platform: SocialPlatform | string
   niche: string
+  detected_niche?: string
+  is_beauty_creator?: boolean
+  ad_readiness_score?: number
+  sponsored_video_count?: number
+  recent_videos_scanned?: number
+  sponsorship_rate_pct?: number
+  detected_brand_mentions?: string[]
+  sample_sponsored_videos?: SponsoredVideoExample[]
+  median_recent_views?: number
+  youtube_synced_at?: string
+  bot_audit?: BotAuditSummary
   followers: number
   likes_per_min: number
   comments_per_min: number
@@ -128,6 +165,7 @@ interface CreatorFeature {
   lookup_latency_ms: number
   store_mode: string
   data_source?: string
+  is_simulated?: boolean
   video_id?: string | null
   video_title?: string | null
   channel_title?: string | null
@@ -166,7 +204,99 @@ interface CrossChannelItem {
   net_roi_percent: number
   predicted_conversions: number
   expected_gross_revenue: number
+  cpc?: number
+  live_cpc_inr?: number
   multiplier: number
+}
+
+interface SuggestedAlternative {
+  influencer_id: string
+  display_name: string
+  platform: string
+  detected_niche: string
+  ad_readiness_score: number
+  sponsored_video_count: number
+  detected_brand_mentions: string[]
+  median_recent_views: number
+}
+
+interface InvestmentVerdict {
+  verdict: 'INVEST' | 'CONDITIONAL TEST' | 'DO NOT INVEST'
+  confidence_pct: number
+  creator_product_fit_score: number
+  ad_experience_verified: boolean
+  ad_readiness_score: number
+  sponsored_videos_detected: number
+  recent_videos_scanned: number
+  sponsorship_rate_pct: number
+  detected_niche: string
+  requested_category: string
+  is_beauty_creator: boolean
+  detected_brand_mentions: string[]
+  sample_sponsored_videos: SponsoredVideoExample[]
+  recommended_budget_inr: number
+  real_time_cpc_inr: number
+  forecast_cpc_inr: number
+  max_safe_cpc_inr: number
+  reasons: string[]
+  executive_summary: string
+  suggested_alternatives: SuggestedAlternative[]
+}
+
+interface TransparencyAudit {
+  youtube_synced_at: string
+  marketplace_synced_at: string
+  data_source: string
+  is_simulated: boolean
+  video_ids_analyzed: string[]
+  median_recent_views: number
+  effective_cpm_inr: number
+  niche_gate_multiplier: number
+  bot_audit?: BotAuditSummary
+  calculation_breakdown: {
+    estimated_reach: number
+    predicted_ctr_pct: number
+    store_visits: number
+    predicted_cvr_pct: number
+    predicted_conversions: number
+    product_price_inr: number
+    expected_gross_revenue_inr: number
+    campaign_budget_inr: number
+    cpc_inr: number
+    net_roi_percent: number
+  }
+}
+
+interface LiveChannelBenchmark {
+  channel: TargetChannel
+  key: string
+  color: string
+  live_cpc_inr: number
+  cpc_range_inr: [number, number]
+  active_cpm_inr: number
+  live_cvr_baseline_pct: number
+  live_ctr_baseline_pct: number
+  channel_multiplier: number
+  category_aov_inr: Record<string, number>
+  active_campaign_status: string
+  sale_active: boolean
+  storefront_status: string
+  youtube_brand_handle?: string | null
+  youtube_brand_status?: string
+  youtube_subscribers?: number
+  median_campaign_views?: number
+  engagement_rate_pct?: number
+  data_sources: string[]
+}
+
+interface LiveMarketplaceFeedResponse {
+  status: string
+  youtube_api_configured: boolean
+  fetched_at: string
+  cache_ttl_seconds: number
+  channels: LiveChannelBenchmark[]
+  by_channel: Record<string, LiveChannelBenchmark>
+  verified_beauty_creators?: SuggestedAlternative[]
 }
 
 interface PredictionResult {
@@ -194,7 +324,11 @@ interface PredictionResult {
     shares_per_min: number
     rolling_sentiment: number
     bot_anomaly_ratio: number
+    median_recent_views?: number
   }
+  investment_verdict?: InvestmentVerdict
+  transparency_audit?: TransparencyAudit
+  data_provenance?: TransparencyAudit
   attributions: AttributionItem[]
   cross_channel_comparison: CrossChannelItem[]
   created_at?: string
@@ -228,62 +362,25 @@ const studioPhoto =
 
 const CHANNELS: Array<{
   name: TargetChannel
-  mult: string
   color: string
   logo?: React.ReactNode
 }> = [
-  { name: 'Nykaa', mult: '1.18×', color: '#FC2779', logo: <NykaaLogo className="h-3.5" /> },
-  { name: 'Tira', mult: '1.05×', color: '#ED1C24', logo: <TiraLogo className="h-3" /> },
-  { name: 'Purplle', mult: '0.94×', color: '#C084FC', logo: <PurplleLogo className="h-3.5" /> },
-  { name: 'D2C Web', mult: '0.88×', color: '#00F0FF' },
+  { name: 'Nykaa', color: '#FC2779', logo: <NykaaLogo className="h-3.5" /> },
+  { name: 'Tira', color: '#ED1C24', logo: <TiraLogo className="h-3" /> },
+  { name: 'Purplle', color: '#C084FC', logo: <PurplleLogo className="h-3.5" /> },
+  { name: 'D2C Web', color: '#00F0FF' },
 ]
 
-const PRESETS: Array<{
-  label: string
-  influencer_id: string
-  social_platform: SocialPlatform
-  target_channel: TargetChannel
-  product_category: ProductCategory
-  campaign_budget: number
-  product_price: number
-}> = [
-  {
-    label: 'Nykaa Skincare Shorts',
-    influencer_id: '@koyal_bhattacharjee_shorts',
-    social_platform: 'YouTube Shorts',
-    target_channel: 'Nykaa',
-    product_category: 'Skincare',
-    campaign_budget: 350000,
-    product_price: 1450,
-  },
-  {
-    label: 'Tira Luxury Haul',
-    influencer_id: '@super_style_yt',
-    social_platform: 'YouTube',
-    target_channel: 'Tira',
-    product_category: 'Fragrance',
-    campaign_budget: 500000,
-    product_price: 2800,
-  },
-  {
-    label: 'Purplle Everyday Makeup',
-    influencer_id: '@yashita_rai_shorts',
-    social_platform: 'YouTube Shorts',
-    target_channel: 'Purplle',
-    product_category: 'Makeup',
-    campaign_budget: 180000,
-    product_price: 699,
-  },
-  {
-    label: 'Nykaa Official Serum',
-    influencer_id: '@nykaa_shorts',
-    social_platform: 'YouTube Shorts',
-    target_channel: 'Nykaa',
-    product_category: 'Skincare',
-    campaign_budget: 420000,
-    product_price: 1299,
-  },
-]
+function verdictStateTone(verdictOrTier: string | undefined, netRoi?: number): 'teal' | 'ochre' | 'coral' {
+  const upper = (verdictOrTier || '').toUpperCase()
+  if (upper.startsWith('INVEST') || upper.includes('STRONG BUY')) return 'teal'
+  if (upper.startsWith('CONDITIONAL') || upper.includes('MODERATE')) return 'ochre'
+  if (upper.startsWith('DO NOT INVEST') || upper.includes('NEGATIVE')) return 'coral'
+  if (typeof netRoi === 'number') {
+    return netRoi >= 45 ? 'teal' : netRoi >= 0 ? 'ochre' : 'coral'
+  }
+  return 'ochre'
+}
 
 const dashboardStyles = `
 .gd-app {
@@ -415,15 +512,46 @@ const dashboardStyles = `
   border-radius: 999px;
   padding: 6px 9px 6px 13px;
 }
-.gd-brand { display: flex; align-items: center; gap: 10px; min-inline-size: 0; padding-inline-start: 3px; }
-.gd-logo {
-  inline-size: 36px; block-size: 36px; display: grid; place-items: center;
-  border-radius: 50%; background: var(--gd-pick); color: var(--gd-pick-ink);
-  box-shadow: inset 0 0 0 1px var(--gd-gloss), 0 2px 7px rgb(var(--gd-dark-shadow) / 12%);
-  font-weight: 900; font-size: 15px;
+.gd-brand { display: flex; align-items: center; gap: 10px; min-inline-size: 0; padding-inline-start: 2px; }
+.gd-brand-logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
-.gd-brand strong { display: block; font-size: 12.5px; letter-spacing: .12em; line-height: 1.1; font-weight: 850; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gd-brand small { display: block; margin-block-start: 2px; font-size: 10px; color: var(--gd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* In light theme, blend the wordmark natively onto the warm glass navbar with high-contrast espresso & deep teal */
+.gd-app[data-theme="light"] .gd-brand-logo > div > div:first-child {
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(28 22 20 / 92%) 56%, rgb(38 30 27 / 78%) 100%);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 22%), 0 3px 10px rgb(35 21 14 / 22%);
+}
+.gd-app[data-theme="light"] .gd-brand-logo .font-display > span:first-child {
+  background-image: linear-gradient(180deg, #1a1310 0%, #2d221d 55%, #58453b 100%) !important;
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 55%)) !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo .font-display > span:nth-child(3) {
+  background-image: linear-gradient(135deg, #065a48 0%, #0e7490 55%, #09644f 100%) !important;
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 55%)) !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo .font-display > span:nth-child(2) span.animate-pulse {
+  background-color: #0e7490 !important;
+  box-shadow: 0 0 6px rgb(14 116 144 / 45%) !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo .font-mono {
+  color: #423731 !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo .h-2.w-px {
+  background-color: rgb(74 49 33 / 30%) !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo [title="Live Telemetry Engine Active"] path:first-of-type {
+  stroke: rgb(9 100 79 / 30%) !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo [title="Live Telemetry Engine Active"] path:last-of-type {
+  stroke: #09644f !important;
+  filter: none !important;
+}
+.gd-app[data-theme="light"] .gd-brand-logo [title="Live Telemetry Engine Active"] circle {
+  fill: #0e7490 !important;
+}
 .gd-ask {
   position: relative;
   display: flex;
@@ -686,6 +814,7 @@ const dashboardStyles = `
 @media (max-width: 760px) {
   .gd-surround { padding-top: 12px; padding-bottom: calc(78px + env(safe-area-inset-bottom)); inline-size: calc(100% - 20px); }
   .gd-top { grid-template-columns: minmax(0, 1fr) auto; padding: 8px 10px; border-radius: 22px; }
+  .gd-brand-logo { max-inline-size: 100%; overflow: hidden; }
   .gd-ask { grid-area: 2 / 1 / 3 / -1; }
   .gd-stage { border-radius: 22px; }
   .gd-stage-scroll { block-size: auto; padding: 16px 14px 20px; overflow: visible; }
@@ -918,19 +1047,22 @@ export function GlassyDashboard({
 
   // Campaign state (canonical INR)
   const [currency, setCurrency] = useState<Currency>('INR')
-  const [influencerId, setInfluencerId] = useState<string>('@koyal_bhattacharjee_shorts')
+  const [influencerId, setInfluencerId] = useState<string>('')
   const [customHandleMode, setCustomHandleMode] = useState<boolean>(false)
   const [socialPlatform, setSocialPlatform] = useState<SocialPlatform>('YouTube Shorts')
   const [targetChannel, setTargetChannel] = useState<TargetChannel>('Nykaa')
   const [productCategory, setProductCategory] = useState<ProductCategory>('Skincare')
-  const [campaignBudgetInr, setCampaignBudgetInr] = useState<number>(350000)
+  const [campaignBudgetInr, setCampaignBudgetInr] = useState<number>(150000)
   const [productPriceInr, setProductPriceInr] = useState<number>(1450)
 
-  // Live API states
+  // Live API states (100% live-hydrated, zero fake presets)
   const [creators, setCreators] = useState<CreatorFeature[]>([])
   const [ticker, setTicker] = useState<TickerEvent[]>([])
   const [storeMode, setStoreMode] = useState<string>('in_memory_sliding_window')
   const [youtubeLiveActive, setYoutubeLiveActive] = useState<boolean>(false)
+  const [liveFeedError, setLiveFeedError] = useState<string | null>(null)
+  const [marketplaceFeed, setMarketplaceFeed] = useState<LiveMarketplaceFeedResponse | null>(null)
+  const [marketplaceLoading, setMarketplaceLoading] = useState<boolean>(false)
   const [ytInput, setYtInput] = useState<string>('')
   const [ytTracking, setYtTracking] = useState<boolean>(false)
   const [ytBannerMsg, setYtBannerMsg] = useState<string | null>(null)
@@ -945,7 +1077,9 @@ export function GlassyDashboard({
   const [prediction, setPrediction] = useState<PredictionResult | null>(null)
   const [history, setHistory] = useState<SavedHistoryRow[]>([])
   const [predicting, setPredicting] = useState<boolean>(false)
-  const [bursting, setBursting] = useState<boolean>(false)
+  const [refreshingTelemetry, setRefreshingTelemetry] = useState<boolean>(false)
+  const [auditingCreator, setAuditingCreator] = useState<boolean>(false)
+  const [auditBannerMsg, setAuditBannerMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   // Filters for search/shortlist/activity
@@ -993,20 +1127,48 @@ export function GlassyDashboard({
     [token]
   )
 
-  const fetchLiveFeed = useCallback(async () => {
-    if (!token) return
+  const fetchLiveFeed = useCallback(async (): Promise<CreatorFeature[]> => {
+    if (!token) return []
     try {
       const res = await fetch(`${API_BASE_URL}/api/creators/live-feed`, { headers: authHeaders })
-      if (!res.ok) return
+      if (!res.ok) {
+        setLiveFeedError(`Live creator feed returned HTTP ${res.status}.`)
+        return []
+      }
       const data = await res.json()
-      setCreators(data.creators || [])
+      const list = (data.creators || []) as CreatorFeature[]
+      setCreators(list)
       setTicker(data.ticker || [])
       setStoreMode(data.store_mode || 'in_memory_sliding_window')
       setYoutubeLiveActive(Boolean(data.youtube_live_active))
+      setLiveFeedError(data.live_feed_error || null)
+      return list
     } catch {
-      // silent resilience
+      setLiveFeedError('Unable to reach live creator feed gateway.')
+      return []
     }
   }, [token, authHeaders])
+
+  const fetchMarketplaceFeed = useCallback(
+    async (forceRefresh = false) => {
+      if (!token) return
+      setMarketplaceLoading(true)
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/channels/live-feed${forceRefresh ? '?refresh=true' : ''}`,
+          { headers: authHeaders }
+        )
+        if (!res.ok) return
+        const data = (await res.json()) as LiveMarketplaceFeedResponse
+        setMarketplaceFeed(data)
+      } catch {
+        // leave previous live feed state untouched
+      } finally {
+        setMarketplaceLoading(false)
+      }
+    },
+    [token, authHeaders]
+  )
 
   const fetchHistory = useCallback(async () => {
     if (!token) return
@@ -1017,6 +1179,21 @@ export function GlassyDashboard({
       setHistory(rows)
     } catch {
       // ignore
+    }
+  }, [token, authHeaders])
+
+  const handleClearHistory = useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/predictions/history`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      })
+      if (res.ok) {
+        setHistory([])
+      }
+    } catch {
+      setErrorMsg('Failed to clear session history.')
     }
   }, [token, authHeaders])
 
@@ -1031,7 +1208,8 @@ export function GlassyDashboard({
       silent?: boolean
       save_to_history?: boolean
     }) => {
-      if (!token) return
+      const targetCreator = (overrides?.influencer_id ?? influencerId).trim()
+      if (!token || !targetCreator) return
       const isSilent = Boolean(overrides?.silent)
       if (!isSilent) {
         setPredicting(true)
@@ -1042,7 +1220,7 @@ export function GlassyDashboard({
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify({
-            influencer_id: overrides?.influencer_id ?? influencerId,
+            influencer_id: targetCreator,
             social_platform: overrides?.social_platform ?? socialPlatform,
             target_channel: overrides?.target_channel ?? targetChannel,
             product_category: overrides?.product_category ?? productCategory,
@@ -1064,6 +1242,7 @@ export function GlassyDashboard({
         if (overrides?.save_to_history ?? !isSilent) {
           fetchHistory()
         }
+        await fetchLiveFeed()
       } catch (err) {
         if (!isSilent) {
           setErrorMsg(err instanceof Error ? err.message : 'Unable to reach Prediction Engine.')
@@ -1082,6 +1261,7 @@ export function GlassyDashboard({
       campaignBudgetInr,
       productPriceInr,
       fetchHistory,
+      fetchLiveFeed,
     ]
   )
 
@@ -1106,31 +1286,74 @@ export function GlassyDashboard({
             latestLikesPm: Number(latest.likes_per_min ?? rm.likes_per_min ?? 0),
             latestSharesPm: Number(latest.shares_per_min ?? rm.shares_per_min ?? 0),
           })
+        } else {
+          setLiveSeries([])
         }
         if (data.recent_events) setTicker(data.recent_events)
         if (data.youtube_live_active !== undefined) {
           setYoutubeLiveActive(Boolean(data.youtube_live_active))
         }
+        if (data.live_feed_error !== undefined) {
+          setLiveFeedError(data.live_feed_error || null)
+        }
         tickCountRef.current += 1
-        if (tickCountRef.current % 3 === 0) {
+        if (tickCountRef.current % 6 === 0 && influencerId) {
           runPrediction({ silent: true, save_to_history: false })
         }
       } catch {
         // silent poll resilience
       }
     },
-    [token, authHeaders, runPrediction]
+    [token, authHeaders, influencerId, runPrediction]
   )
 
+  // Clean workspace hydration on login / token change
   useEffect(() => {
     if (!token) return
-    fetchLiveFeed()
-    fetchHistory()
-    runPrediction()
+    setPrediction(null)
+    setHistory([])
+    setCreators([])
+    setLiveSeries([])
+    setYtChannelSummary(null)
+    setYtBannerMsg(null)
+    setAuditBannerMsg(null)
+    setErrorMsg(null)
+
+    let cancelled = false
+    const bootstrap = async () => {
+      const [liveCreators] = await Promise.all([
+        fetchLiveFeed(),
+        fetchMarketplaceFeed(),
+        fetchHistory(),
+      ])
+      if (cancelled) return
+      if (liveCreators.length > 0) {
+        const first = liveCreators[0]
+        const plat: SocialPlatform = first.platform === 'YouTube' ? 'YouTube' : 'YouTube Shorts'
+        const niche = (first.detected_niche || first.niche) as ProductCategory
+        const cat: ProductCategory =
+          niche === 'Skincare' || niche === 'Makeup' || niche === 'Haircare' || niche === 'Fragrance'
+            ? niche
+            : 'Skincare'
+        setInfluencerId(first.influencer_id)
+        setSocialPlatform(plat)
+        setProductCategory(cat)
+        await runPrediction({
+          influencer_id: first.influencer_id,
+          social_platform: plat,
+          product_category: cat,
+          save_to_history: false,
+        })
+      }
+    }
+    bootstrap()
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !influencerId) return
     let intervalId: number | null = null
     let feedCounter = 0
 
@@ -1138,11 +1361,11 @@ export function GlassyDashboard({
       if (document.hidden) return
       fetchStreamTelemetry(influencerId)
       feedCounter += 1
-      if (feedCounter % 3 === 0) fetchLiveFeed()
+      if (feedCounter % 4 === 0) fetchLiveFeed()
     }
 
     tick()
-    intervalId = window.setInterval(tick, 1500)
+    intervalId = window.setInterval(tick, 4000)
     const handleVisibility = () => {
       if (!document.hidden) tick()
     }
@@ -1153,29 +1376,63 @@ export function GlassyDashboard({
     }
   }, [token, influencerId, fetchStreamTelemetry, fetchLiveFeed])
 
-  const handleTriggerBurst = async (burstType: 'viral' | 'bot_spike') => {
-    if (!token || bursting) return
-    setBursting(true)
+  const handleRefreshLiveTelemetry = async () => {
+    if (!token || refreshingTelemetry) return
+    setRefreshingTelemetry(true)
     setErrorMsg(null)
+    setAuditBannerMsg(null)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/stream/burst`, {
+      const res = await fetch(`${API_BASE_URL}/api/telemetry/refresh`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({
-          influencer_id: influencerId,
-          burst_type: burstType,
-          platform: socialPlatform,
-        }),
+        body: JSON.stringify({ influencer_id: influencerId || null }),
       })
-      if (res.ok) {
-        await fetchLiveFeed()
-        await fetchStreamTelemetry(influencerId)
-        await runPrediction()
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.detail || `Refresh failed (${res.status})`)
       }
-    } catch {
-      setErrorMsg('Failed to trigger engagement simulation.')
+      await Promise.all([fetchLiveFeed(), fetchMarketplaceFeed(true)])
+      if (influencerId) {
+        await fetchStreamTelemetry(influencerId)
+        await runPrediction({ save_to_history: false })
+      }
+      setAuditBannerMsg(
+        `Live YouTube & marketplace feeds synced (${body.refreshed_count ?? 0} video streams updated).`
+      )
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to refresh live telemetry.')
     } finally {
-      setBursting(false)
+      setRefreshingTelemetry(false)
+    }
+  }
+
+  const handleRunLiveBotAudit = async () => {
+    if (!token || !influencerId || auditingCreator) return
+    setAuditingCreator(true)
+    setErrorMsg(null)
+    setAuditBannerMsg(null)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/telemetry/audit`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ influencer_id: influencerId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.detail || `Bot audit failed (${res.status})`)
+      }
+      await fetchLiveFeed()
+      await fetchStreamTelemetry(influencerId)
+      await runPrediction({ save_to_history: false })
+      setAuditBannerMsg(
+        `Live Bot/Anomaly Audit (${body.comments_checked ?? 0} comments checked): ${
+          body.bot_audit?.audit_summary || 'Completed.'
+        }`
+      )
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to run live bot/anomaly audit.')
+    } finally {
+      setAuditingCreator(false)
     }
   }
 
@@ -1185,6 +1442,7 @@ export function GlassyDashboard({
     setYtTracking(true)
     setErrorMsg(null)
     setYtBannerMsg(null)
+    setAuditBannerMsg(null)
     try {
       const res = await fetch(`${API_BASE_URL}/api/youtube/track`, {
         method: 'POST',
@@ -1195,7 +1453,7 @@ export function GlassyDashboard({
       if (!res.ok) {
         throw new Error(body.detail || `YouTube tracking error (${res.status})`)
       }
-      const trackedNiche = body.niche as ProductCategory
+      const trackedNiche = (body.detected_niche || body.niche) as string
       const validCat: ProductCategory =
         trackedNiche === 'Skincare' ||
         trackedNiche === 'Makeup' ||
@@ -1226,14 +1484,16 @@ export function GlassyDashboard({
         setYtBannerMsg(
           `Synced ${body.channel_title} (${Number(
             body.subscriber_count
-          ).toLocaleString()} subscribers · Latest ${trackedPlat}: "${body.video_title}")`
+          ).toLocaleString()} subs · Niche: ${trackedNiche} · ${
+            body.sponsored_videos_detected ?? 0
+          }/${body.recent_videos_scanned ?? 0} sponsored uploads)`
         )
       } else {
         setYtChannelSummary(null)
         setYtBannerMsg(
-          `Synced ${trackedPlat}: "${body.video_title}" (${body.channel_title}) · ${Number(
+          `Synced ${trackedPlat}: "${body.video_title}" (${body.channel_title}) · Niche: ${trackedNiche} · ${Number(
             body.real_views
-          ).toLocaleString()} views, ${Number(body.real_likes).toLocaleString()} likes`
+          ).toLocaleString()} views`
         )
       }
       setYtInput('')
@@ -1254,24 +1514,6 @@ export function GlassyDashboard({
   const handleTrackYoutubeVideo = async (e: React.FormEvent) => {
     e.preventDefault()
     await trackYoutubeTarget(ytInput)
-  }
-
-  const applyPreset = (p: (typeof PRESETS)[number]) => {
-    setCustomHandleMode(false)
-    setInfluencerId(p.influencer_id)
-    setSocialPlatform(p.social_platform)
-    setTargetChannel(p.target_channel)
-    setProductCategory(p.product_category)
-    setCampaignBudgetInr(p.campaign_budget)
-    setProductPriceInr(p.product_price)
-    runPrediction({
-      influencer_id: p.influencer_id,
-      social_platform: p.social_platform,
-      target_channel: p.target_channel,
-      product_category: p.product_category,
-      campaign_budget: p.campaign_budget,
-      product_price: p.product_price,
-    })
   }
 
   const changeView = useCallback((next: View) => {
@@ -1318,15 +1560,9 @@ export function GlassyDashboard({
 
   const velocitySeries = useMemo(() => {
     const source = liveSeries.length > 0 ? liveSeries : activeCreator?.history || []
-    if (source.length === 0) {
-      return [
-        { time: '00:00', likes_per_min: 420, shares_per_min: 38, live_roi_pct: 610 },
-        { time: '00:02', likes_per_min: 465, shares_per_min: 44, live_roi_pct: 665 },
-      ]
-    }
     return source.slice(-30).map((h) => ({
       ...h,
-      live_roi_pct: h.live_roi_pct ?? Math.round(120 + h.likes_per_min * 1.4),
+      live_roi_pct: h.live_roi_pct ?? 0,
     }))
   }, [liveSeries, activeCreator])
 
@@ -1398,12 +1634,10 @@ export function GlassyDashboard({
 
   const current = views.find((item) => item.id === view)!
   const close = () => setModal(null)
-  const roiTierState =
-    !prediction || prediction.net_roi_percent >= 80
-      ? 'teal'
-      : prediction.net_roi_percent >= 0
-        ? 'ochre'
-        : 'coral'
+  const roiTierState = verdictStateTone(
+    prediction?.investment_verdict?.verdict || prediction?.decision_tier,
+    prediction?.net_roi_percent
+  )
 
   const chartGridColor = theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(64,51,45,0.14)'
   const chartTickColor = theme === 'dark' ? '#d8cbbf' : '#423731'
@@ -1429,21 +1663,8 @@ export function GlassyDashboard({
         {/* ========================================================= */}
         <header className="gd-top">
           <div className="gd-brand">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              title="Back to Home"
-              className="gd-logo"
-              aria-label="KALKI Pulse Home"
-            >
-              K
-            </button>
-            <div style={{ minWidth: 0 }}>
-              <strong>{user?.brand_name || workspaceName}</strong>
-              <small>
-                {youtubeLiveActive ? '● YouTube Live API Ready' : 'ROI Workspace'} ·{' '}
-                {storeMode === 'redis_live' ? 'Redis Stream' : 'Live Buffer'}
-              </small>
+            <div className="gd-brand-logo">
+              <KalkiPulseLogo onClick={() => navigate('/')} />
             </div>
           </div>
 
@@ -1558,6 +1779,46 @@ export function GlassyDashboard({
                 </div>
               </header>
 
+              {liveFeedError && (
+                <div
+                  role="status"
+                  className="mb-4 p-3 rounded-2xl flex items-center justify-between gap-2.5 text-xs"
+                  style={{
+                    background: 'color-mix(in srgb, var(--gd-ochre) 16%, var(--gd-inner))',
+                    border: '1px solid color-mix(in srgb, var(--gd-ochre) 45%, transparent)',
+                  }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <AlertTriangle className="size-4 shrink-0" style={{ color: 'var(--gd-ochre)' }} />
+                    <span>{liveFeedError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="gd-secondary"
+                    style={{ minBlockSize: 28, padding: '3px 10px', fontSize: 11 }}
+                    onClick={handleRefreshLiveTelemetry}
+                    disabled={refreshingTelemetry}
+                  >
+                    <RefreshCw className={refreshingTelemetry ? 'animate-spin' : ''} aria-hidden="true" />
+                    Retry Sync
+                  </button>
+                </div>
+              )}
+
+              {auditBannerMsg && (
+                <div
+                  role="status"
+                  className="mb-4 p-3 rounded-2xl flex items-center gap-2.5 text-xs"
+                  style={{
+                    background: 'color-mix(in srgb, var(--gd-teal) 14%, var(--gd-inner))',
+                    border: '1px solid color-mix(in srgb, var(--gd-teal) 40%, transparent)',
+                  }}
+                >
+                  <ShieldCheck className="size-4 shrink-0" style={{ color: 'var(--gd-teal)' }} />
+                  <span>{auditBannerMsg}</span>
+                </div>
+              )}
+
               {errorMsg && (
                 <div
                   role="alert"
@@ -1576,24 +1837,248 @@ export function GlassyDashboard({
                 {/* ─── VIEW 1: COMMAND CENTER ─── */}
                 {view === 'command' && (
                   <div className="space-y-4">
-                    {/* 1-Click Scenario Bar */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider opacity-75 mr-1">
-                        Quick Scenarios:
-                      </span>
-                      {PRESETS.map((p) => (
-                        <button
-                          key={p.label}
-                          type="button"
-                          onClick={() => applyPreset(p)}
-                          className="gd-secondary"
-                          style={{ minBlockSize: 32, padding: '4px 12px', fontSize: 11.5 }}
-                        >
-                          <Sparkles className="size-3.5" style={{ color: 'var(--gd-teal)' }} />
-                          <span>{p.label}</span>
-                        </button>
-                      ))}
-                    </div>
+                    {/* Prominent Final Investment Judgement Card */}
+                    {prediction?.investment_verdict && (
+                      <section
+                        className="gd-panel space-y-3"
+                        style={{
+                          borderColor:
+                            prediction.investment_verdict.verdict === 'INVEST'
+                              ? 'var(--gd-teal)'
+                              : prediction.investment_verdict.verdict === 'CONDITIONAL TEST'
+                                ? 'var(--gd-ochre)'
+                                : 'var(--gd-coral)',
+                        }}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className="gd-status"
+                                data-state={verdictStateTone(prediction.investment_verdict.verdict)}
+                                style={{ fontSize: 12, padding: '5px 12px' }}
+                              >
+                                {prediction.investment_verdict.verdict === 'INVEST' ? (
+                                  <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                                ) : prediction.investment_verdict.verdict === 'CONDITIONAL TEST' ? (
+                                  <AlertTriangle className="size-3.5" aria-hidden="true" />
+                                ) : (
+                                  <XCircle className="size-3.5" aria-hidden="true" />
+                                )}
+                                <strong>{prediction.investment_verdict.verdict}</strong>
+                              </span>
+                              <span className="gd-status" data-state="teal">
+                                Fit {prediction.investment_verdict.creator_product_fit_score}/100
+                              </span>
+                              <span className="gd-status">
+                                Confidence {prediction.investment_verdict.confidence_pct}%
+                              </span>
+                              <span
+                                className="gd-status"
+                                data-state={
+                                  prediction.investment_verdict.ad_experience_verified ? 'teal' : 'ochre'
+                                }
+                              >
+                                <BadgeCheck className="size-3.5" aria-hidden="true" />
+                                {prediction.investment_verdict.ad_experience_verified
+                                  ? `Ad Verified (${prediction.investment_verdict.sponsored_videos_detected}/${prediction.investment_verdict.recent_videos_scanned} videos)`
+                                  : `No Past Sponsors Found (${prediction.investment_verdict.recent_videos_scanned} scanned)`}
+                              </span>
+                            </div>
+                            <h2 className="text-lg font-extrabold">
+                              Final Investment Judgement — {prediction.influencer_id}
+                            </h2>
+                            <p className="text-xs opacity-90 max-w-4xl">
+                              {prediction.investment_verdict.executive_summary}
+                            </p>
+                          </div>
+
+                          <div className="text-right text-xs space-y-1">
+                            <div className="opacity-70">Recommended Spend</div>
+                            <strong
+                              className="text-base font-extrabold block"
+                              style={{
+                                color:
+                                  prediction.investment_verdict.verdict === 'DO NOT INVEST'
+                                    ? 'var(--gd-coral)'
+                                    : 'var(--gd-teal)',
+                              }}
+                            >
+                              {prediction.investment_verdict.verdict === 'DO NOT INVEST'
+                                ? `${formatMoney(0)} (Avoid)`
+                                : formatMoney(prediction.investment_verdict.recommended_budget_inr)}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* Side-by-side Niche, Ad Proof, and Live vs Forecast CPC */}
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                          <div
+                            className="p-2.5 rounded-xl"
+                            style={{ background: 'var(--gd-inner)', border: '1px solid var(--gd-line)' }}
+                          >
+                            <div className="opacity-70">Creator Niche vs Brand Product</div>
+                            <strong className="block mt-1">
+                              {prediction.investment_verdict.detected_niche} vs{' '}
+                              {targetChannel} {prediction.investment_verdict.requested_category}
+                            </strong>
+                            <span
+                              className="text-[10.5px] font-bold"
+                              style={{
+                                color: prediction.investment_verdict.is_beauty_creator
+                                  ? 'var(--gd-teal)'
+                                  : 'var(--gd-coral)',
+                              }}
+                            >
+                              {prediction.investment_verdict.is_beauty_creator
+                                ? 'Beauty Audience Aligned'
+                                : 'Non-Beauty Niche Mismatch'}
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-2.5 rounded-xl"
+                            style={{ background: 'var(--gd-inner)', border: '1px solid var(--gd-line)' }}
+                          >
+                            <div className="opacity-70">Sponsorship &amp; Brand Proof</div>
+                            <strong className="block mt-1">
+                              {prediction.investment_verdict.sponsorship_rate_pct}% sponsor rate · Score{' '}
+                              {prediction.investment_verdict.ad_readiness_score}/100
+                            </strong>
+                            <span className="text-[10.5px] opacity-80 block truncate">
+                              {prediction.investment_verdict.detected_brand_mentions.length > 0
+                                ? `Mentions: ${prediction.investment_verdict.detected_brand_mentions.join(', ')}`
+                                : 'Zero Nykaa/Tira/Purplle brand mentions'}
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-2.5 rounded-xl"
+                            style={{ background: 'var(--gd-inner)', border: '1px solid var(--gd-line)' }}
+                          >
+                            <div className="opacity-70">Live Market CPC vs Forecast CPC</div>
+                            <strong className="block mt-1">
+                              {formatMoney(prediction.investment_verdict.real_time_cpc_inr, 2)} live vs{' '}
+                              <span
+                                style={{
+                                  color:
+                                    prediction.investment_verdict.forecast_cpc_inr <=
+                                    prediction.investment_verdict.max_safe_cpc_inr
+                                      ? 'var(--gd-teal)'
+                                      : 'var(--gd-coral)',
+                                }}
+                              >
+                                {formatMoney(prediction.investment_verdict.forecast_cpc_inr, 2)}
+                              </span>
+                            </strong>
+                            <span className="text-[10.5px] opacity-80">
+                              Break-even max CPC: {formatMoney(prediction.investment_verdict.max_safe_cpc_inr, 2)}
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-2.5 rounded-xl"
+                            style={{ background: 'var(--gd-inner)', border: '1px solid var(--gd-line)' }}
+                          >
+                            <div className="opacity-70">Live Data Provenance</div>
+                            <strong className="block mt-1">
+                              {prediction.transparency_audit?.video_ids_analyzed.length ?? 0} videos · Med{' '}
+                              {(prediction.transparency_audit?.median_recent_views ?? 0).toLocaleString('en-IN')} views
+                            </strong>
+                            <span className="text-[10.5px] opacity-80 block truncate">
+                              Synced{' '}
+                              {prediction.transparency_audit?.youtube_synced_at
+                                ? new Date(prediction.transparency_audit.youtube_synced_at).toLocaleTimeString()
+                                : 'live'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Factual Reasons + Sample Sponsored Videos + Alternative Suggestions */}
+                        <div className="grid lg:grid-cols-2 gap-3 text-xs">
+                          <div className="space-y-1">
+                            {prediction.investment_verdict.reasons.map((r, i) => (
+                              <div key={i} className="opacity-90 flex items-start gap-1.5">
+                                <span style={{ color: 'var(--gd-teal)' }}>•</span>
+                                <span>{r}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="space-y-2">
+                            {prediction.investment_verdict.sample_sponsored_videos.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="opacity-70 font-semibold">Sponsor Proof:</span>
+                                {prediction.investment_verdict.sample_sponsored_videos.slice(0, 3).map((sv) => (
+                                  <a
+                                    key={sv.video_id}
+                                    href={sv.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="gd-secondary"
+                                    style={{ minBlockSize: 26, padding: '2px 9px', fontSize: 10.5 }}
+                                  >
+                                    <ExternalLink className="size-3" aria-hidden="true" />
+                                    {sv.video_title.slice(0, 28)}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+
+                            {prediction.investment_verdict.suggested_alternatives.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="opacity-75 font-semibold">Verified Beauty Alternatives:</span>
+                                {prediction.investment_verdict.suggested_alternatives.slice(0, 3).map((alt) => (
+                                  <button
+                                    key={alt.influencer_id}
+                                    type="button"
+                                    className="gd-secondary"
+                                    style={{ minBlockSize: 26, padding: '2px 9px', fontSize: 10.5 }}
+                                    onClick={() => {
+                                      const plat: SocialPlatform =
+                                        alt.platform === 'YouTube' ? 'YouTube' : 'YouTube Shorts'
+                                      setInfluencerId(alt.influencer_id)
+                                      setSocialPlatform(plat)
+                                      runPrediction({
+                                        influencer_id: alt.influencer_id,
+                                        social_platform: plat,
+                                      })
+                                    }}
+                                  >
+                                    {alt.influencer_id} ({alt.detected_niche} · Fit {alt.ad_readiness_score})
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Quick Live Creator @handle Lookup Bar (100% live API v3, zero fake presets) */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        trackYoutubeTarget(ytInput)
+                      }}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={ytInput}
+                        onChange={(e) => setYtInput(e.target.value)}
+                        placeholder="Sync any live YouTube @handle (e.g. @SuperPrincessjo, @Nykaa, @technogamerzofficial) or Video URL"
+                        className="gd-input flex-1 min-w-[260px]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={ytTracking || !ytInput.trim()}
+                        className="gd-primary"
+                      >
+                        <Youtube aria-hidden="true" />
+                        {ytTracking ? 'Verifying Niche & Ads...' : 'Verify & Evaluate Creator'}
+                      </button>
+                    </form>
 
                     <div className="gd-command-grid">
                       {/* LEFT COLUMN: ROI RESULT + 4 METRICS + LIVE STREAM PREVIEW */}
@@ -1603,7 +2088,8 @@ export function GlassyDashboard({
                             <div>
                               <h2>Predicted Net ROI ({targetChannel})</h2>
                               <p>
-                                {influencerId} · {socialPlatform} · {productCategory}
+                                {influencerId || 'Select or sync a live creator'} · {socialPlatform} ·{' '}
+                                {productCategory}
                               </p>
                             </div>
                             <span className="gd-unit">{currency}</span>
@@ -1613,23 +2099,23 @@ export function GlassyDashboard({
                             className="gd-balance-number"
                             style={{
                               color:
-                                !prediction || prediction.net_roi_percent >= 80
+                                roiTierState === 'teal'
                                   ? 'var(--gd-teal)'
-                                  : prediction.net_roi_percent >= 0
+                                  : roiTierState === 'ochre'
                                     ? 'var(--gd-ochre)'
                                     : 'var(--gd-coral)',
                             }}
                           >
                             {prediction
                               ? `${prediction.net_roi_percent >= 0 ? '+' : ''}${prediction.net_roi_percent.toFixed(1)}%`
-                              : '+0.0%'}
+                              : '—'}
                           </div>
 
                           <div className="flex flex-wrap gap-2 mt-4">
                             <button
                               type="button"
                               className="gd-primary"
-                              disabled={predicting}
+                              disabled={predicting || !influencerId}
                               onClick={() => runPrediction()}
                             >
                               <Zap aria-hidden="true" />
@@ -1656,7 +2142,7 @@ export function GlassyDashboard({
                               <strong>{formatMoney(campaignBudgetInr)}</strong>
                             </div>
                             <div>
-                              <span>Est. CPC</span>
+                              <span>Forecast CPC</span>
                               <strong>{prediction ? formatMoney(prediction.cpc, 2) : '—'}</strong>
                             </div>
                           </div>
@@ -1740,43 +2226,49 @@ export function GlassyDashboard({
                             </button>
                           </header>
                           <div style={{ width: '100%', height: 170 }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart
-                                data={velocitySeries}
-                                margin={{ top: 4, right: 6, left: -12, bottom: 0 }}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                                <XAxis dataKey="time" stroke={chartTickColor} tick={{ fontSize: 10 }} />
-                                <YAxis stroke={chartTickColor} tick={{ fontSize: 10 }} />
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: theme === 'dark' ? '#1c181a' : '#fffaf5',
-                                    borderColor: 'var(--gd-rim)',
-                                    borderRadius: 12,
-                                    fontSize: 11,
-                                    color: 'var(--gd-ink)',
-                                  }}
-                                />
-                                <Area
-                                  type="monotone"
-                                  dataKey="likes_per_min"
-                                  name="Likes / min"
-                                  stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
-                                  fill={theme === 'dark' ? 'rgba(117,218,192,0.22)' : 'rgba(9,100,79,0.18)'}
-                                  strokeWidth={2}
-                                  isAnimationActive={false}
-                                />
-                                <Line
-                                  type="monotone"
-                                  dataKey="shares_per_min"
-                                  name="Shares / min"
-                                  stroke={theme === 'dark' ? '#ff9177' : '#a43c27'}
-                                  strokeWidth={2}
-                                  dot={false}
-                                  isAnimationActive={false}
-                                />
-                              </ComposedChart>
-                            </ResponsiveContainer>
+                            {velocitySeries.length === 0 ? (
+                              <div className="h-full flex items-center justify-center text-xs opacity-70 text-center px-4">
+                                No live velocity points yet. Sync a YouTube @handle or video above to stream real telemetry.
+                              </div>
+                            ) : (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart
+                                  data={velocitySeries}
+                                  margin={{ top: 4, right: 6, left: -12, bottom: 0 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                                  <XAxis dataKey="time" stroke={chartTickColor} tick={{ fontSize: 10 }} />
+                                  <YAxis stroke={chartTickColor} tick={{ fontSize: 10 }} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: theme === 'dark' ? '#1c181a' : '#fffaf5',
+                                      borderColor: 'var(--gd-rim)',
+                                      borderRadius: 12,
+                                      fontSize: 11,
+                                      color: 'var(--gd-ink)',
+                                    }}
+                                  />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="likes_per_min"
+                                    name="Likes / min"
+                                    stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
+                                    fill={theme === 'dark' ? 'rgba(117,218,192,0.22)' : 'rgba(9,100,79,0.18)'}
+                                    strokeWidth={2}
+                                    isAnimationActive={false}
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="shares_per_min"
+                                    name="Shares / min"
+                                    stroke={theme === 'dark' ? '#ff9177' : '#a43c27'}
+                                    strokeWidth={2}
+                                    dot={false}
+                                    isAnimationActive={false}
+                                  />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                            )}
                           </div>
                         </section>
                       </div>
@@ -1786,7 +2278,7 @@ export function GlassyDashboard({
                         <header className="gd-panel-head">
                           <div>
                             <h2>Campaign Configurator</h2>
-                            <p>Pick a creator, target marketplace, budget &amp; product price</p>
+                            <p>Pick a verified live creator, marketplace, budget &amp; product price</p>
                           </div>
                           <button
                             type="button"
@@ -1794,18 +2286,18 @@ export function GlassyDashboard({
                             style={{ minBlockSize: 30, padding: '4px 10px', fontSize: 11 }}
                             onClick={() => setCustomHandleMode((m) => !m)}
                           >
-                            {customHandleMode ? 'Use Live Feed' : '+ Custom Handle'}
+                            {customHandleMode ? 'Use Live Feed' : '+ Custom @handle'}
                           </button>
                         </header>
 
                         <div>
                           <label className="gd-field-label">Creator Profile</label>
-                          {customHandleMode ? (
+                          {customHandleMode || creators.length === 0 ? (
                             <input
                               type="text"
                               value={influencerId}
                               onChange={(e) => setInfluencerId(e.target.value)}
-                              placeholder="@creator_handle"
+                              placeholder="@creator_handle (auto-verifies live via YouTube API v3)"
                               className="gd-input"
                             />
                           ) : (
@@ -1827,9 +2319,8 @@ export function GlassyDashboard({
                             >
                               {creators.map((c) => (
                                 <option key={c.influencer_id} value={c.influencer_id}>
-                                  {c.data_source === 'youtube_api_v3' ? '[LIVE YT] ' : ''}
-                                  {c.influencer_id} · {c.niche} ({(c.followers / 1000).toFixed(0)}K) · Sent{' '}
-                                  {c.rolling_sentiment}
+                                  [LIVE] {c.influencer_id} · {c.detected_niche || c.niche} (
+                                  {(c.followers / 1000).toFixed(0)}K subs) · Ad {c.ad_readiness_score ?? 0}/100
                                 </option>
                               ))}
                             </select>
@@ -1853,10 +2344,11 @@ export function GlassyDashboard({
                         </div>
 
                         <div>
-                          <span className="gd-field-label">Target Storefront</span>
+                          <span className="gd-field-label">Target Storefront (Live CPC)</span>
                           <div className="grid grid-cols-2 gap-2">
                             {CHANNELS.map((ch) => {
                               const selected = targetChannel === ch.name
+                              const liveBench = marketplaceFeed?.by_channel?.[ch.name]
                               return (
                                 <button
                                   key={ch.name}
@@ -1875,7 +2367,9 @@ export function GlassyDashboard({
                                     className="text-[11px] font-bold"
                                     style={{ color: 'var(--gd-teal)' }}
                                   >
-                                    {ch.mult}
+                                    {liveBench
+                                      ? `${formatMoney(liveBench.live_cpc_inr, 1)} CPC`
+                                      : 'Live'}
                                   </span>
                                 </button>
                               )
@@ -1974,25 +2468,98 @@ export function GlassyDashboard({
                         <div className="grid grid-cols-2 gap-2.5 pt-1">
                           <button
                             type="button"
-                            disabled={bursting}
-                            onClick={() => handleTriggerBurst('viral')}
+                            disabled={refreshingTelemetry}
+                            onClick={handleRefreshLiveTelemetry}
                             className="gd-secondary"
                           >
-                            <Zap aria-hidden="true" style={{ color: 'var(--gd-teal)' }} />
-                            Simulate Viral Spike
+                            <RefreshCw
+                              aria-hidden="true"
+                              className={refreshingTelemetry ? 'animate-spin' : ''}
+                              style={{ color: 'var(--gd-teal)' }}
+                            />
+                            {refreshingTelemetry ? 'Syncing...' : 'Refresh Live Telemetry Now'}
                           </button>
                           <button
                             type="button"
-                            disabled={bursting}
-                            onClick={() => handleTriggerBurst('bot_spike')}
+                            disabled={auditingCreator || !influencerId}
+                            onClick={handleRunLiveBotAudit}
                             className="gd-secondary"
                           >
-                            <ShieldAlert aria-hidden="true" style={{ color: 'var(--gd-coral)' }} />
-                            Test Bot Filter
+                            <ShieldCheck aria-hidden="true" style={{ color: 'var(--gd-ochre)' }} />
+                            {auditingCreator ? 'Auditing...' : 'Run Live Bot/Anomaly Audit'}
                           </button>
                         </div>
                       </section>
                     </div>
+
+                    {/* Live Marketplace Feeds Panel (Nykaa · Tira · Purplle) */}
+                    <section className="gd-panel space-y-3">
+                      <header className="gd-panel-head">
+                        <div>
+                          <h2>Live Marketplace Feeds — Nykaa · Tira · Purplle</h2>
+                          <p>
+                            Real-time calibrated CPC, active campaign velocity &amp; live {productCategory} AOV
+                            {marketplaceFeed?.fetched_at
+                              ? ` · Synced ${new Date(marketplaceFeed.fetched_at).toLocaleTimeString()}`
+                              : ''}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="gd-secondary"
+                          style={{ minBlockSize: 30, padding: '4px 10px', fontSize: 11 }}
+                          disabled={marketplaceLoading}
+                          onClick={() => fetchMarketplaceFeed(true)}
+                        >
+                          <RefreshCw className={marketplaceLoading ? 'animate-spin' : ''} aria-hidden="true" />
+                          {marketplaceLoading ? 'Syncing...' : 'Sync Live Channels'}
+                        </button>
+                      </header>
+
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        {(marketplaceFeed?.channels || []).map((ch) => (
+                          <div
+                            key={ch.channel}
+                            className="p-3 rounded-2xl space-y-1.5"
+                            style={{
+                              background: targetChannel === ch.channel ? 'var(--gd-raised)' : 'var(--gd-inner)',
+                              border: `1px solid ${targetChannel === ch.channel ? ch.color : 'var(--gd-line)'}`,
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <strong className="text-sm">{ch.channel}</strong>
+                              <span
+                                className="gd-status"
+                                data-state={ch.youtube_brand_status === 'live' ? 'teal' : 'ochre'}
+                              >
+                                <i aria-hidden="true" />
+                                {ch.youtube_brand_status === 'live' ? 'LIVE FEED' : 'BENCHMARK'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between pt-1">
+                              <span className="opacity-70">Live CPC:</span>
+                              <strong style={{ color: 'var(--gd-teal)' }}>
+                                {formatMoney(ch.live_cpc_inr, 2)} ({formatMoney(ch.cpc_range_inr[0], 0)}–
+                                {formatMoney(ch.cpc_range_inr[1], 0)})
+                              </strong>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="opacity-70">{productCategory} AOV:</span>
+                              <strong>{formatMoney(ch.category_aov_inr[productCategory] ?? 1200)}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="opacity-70">CVR / Eng:</span>
+                              <strong>
+                                {ch.live_cvr_baseline_pct}% · {ch.engagement_rate_pct ?? 0}%
+                              </strong>
+                            </div>
+                            <div className="text-[10.5px] opacity-80 truncate pt-1" title={ch.active_campaign_status}>
+                              {ch.active_campaign_status}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   </div>
                 )}
 
@@ -2019,7 +2586,7 @@ export function GlassyDashboard({
                         <span className="text-[11px] font-bold uppercase tracking-wider opacity-75 mr-1">
                           1-Click Live Sync:
                         </span>
-                        {['@Nykaa', '@SuperPrincessjo', '@Mrwhosetheboss', '@Purplle'].map((handle) => (
+                        {['@Nykaa', '@tirabeauty', '@Purplle', '@technogamerzofficial'].map((handle) => (
                           <button
                             key={handle}
                             type="button"
@@ -2113,62 +2680,68 @@ export function GlassyDashboard({
                         </header>
 
                         <div style={{ width: '100%', height: 225 }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart
-                              data={velocitySeries}
-                              margin={{ top: 6, right: 8, left: -10, bottom: 0 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                              <XAxis dataKey="time" stroke={chartTickColor} tick={{ fontSize: 10 }} />
-                              <YAxis yAxisId="left" stroke={chartTickColor} tick={{ fontSize: 10 }} />
-                              <YAxis
-                                yAxisId="right"
-                                orientation="right"
-                                stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
-                                tick={{ fontSize: 10 }}
-                                unit="%"
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: theme === 'dark' ? '#1c181a' : '#fffaf5',
-                                  borderColor: 'var(--gd-rim)',
-                                  borderRadius: 12,
-                                  fontSize: 11,
-                                  color: 'var(--gd-ink)',
-                                }}
-                              />
-                              <Area
-                                yAxisId="left"
-                                type="monotone"
-                                dataKey="likes_per_min"
-                                name="Likes / min"
-                                stroke={theme === 'dark' ? '#00F0FF' : '#0e7490'}
-                                fill={theme === 'dark' ? 'rgba(0,240,255,0.22)' : 'rgba(14,116,144,0.16)'}
-                                strokeWidth={2}
-                                isAnimationActive={false}
-                              />
-                              <Area
-                                yAxisId="left"
-                                type="monotone"
-                                dataKey="shares_per_min"
-                                name="Shares / min"
-                                stroke={theme === 'dark' ? '#ff9177' : '#a43c27'}
-                                fill={theme === 'dark' ? 'rgba(255,145,119,0.2)' : 'rgba(164,60,39,0.14)'}
-                                strokeWidth={2}
-                                isAnimationActive={false}
-                              />
-                              <Line
-                                yAxisId="right"
-                                type="monotone"
-                                dataKey="live_roi_pct"
-                                name="Projected ROI %"
-                                stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
-                                strokeWidth={2}
-                                dot={false}
-                                isAnimationActive={false}
-                              />
-                            </ComposedChart>
-                          </ResponsiveContainer>
+                          {velocitySeries.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-xs opacity-70 text-center px-4">
+                              No live stream samples recorded yet. Sync a YouTube @handle or Video URL above.
+                            </div>
+                          ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart
+                                data={velocitySeries}
+                                margin={{ top: 6, right: 8, left: -10, bottom: 0 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                                <XAxis dataKey="time" stroke={chartTickColor} tick={{ fontSize: 10 }} />
+                                <YAxis yAxisId="left" stroke={chartTickColor} tick={{ fontSize: 10 }} />
+                                <YAxis
+                                  yAxisId="right"
+                                  orientation="right"
+                                  stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
+                                  tick={{ fontSize: 10 }}
+                                  unit="%"
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: theme === 'dark' ? '#1c181a' : '#fffaf5',
+                                    borderColor: 'var(--gd-rim)',
+                                    borderRadius: 12,
+                                    fontSize: 11,
+                                    color: 'var(--gd-ink)',
+                                  }}
+                                />
+                                <Area
+                                  yAxisId="left"
+                                  type="monotone"
+                                  dataKey="likes_per_min"
+                                  name="Likes / min"
+                                  stroke={theme === 'dark' ? '#00F0FF' : '#0e7490'}
+                                  fill={theme === 'dark' ? 'rgba(0,240,255,0.22)' : 'rgba(14,116,144,0.16)'}
+                                  strokeWidth={2}
+                                  isAnimationActive={false}
+                                />
+                                <Area
+                                  yAxisId="left"
+                                  type="monotone"
+                                  dataKey="shares_per_min"
+                                  name="Shares / min"
+                                  stroke={theme === 'dark' ? '#ff9177' : '#a43c27'}
+                                  fill={theme === 'dark' ? 'rgba(255,145,119,0.2)' : 'rgba(164,60,39,0.14)'}
+                                  strokeWidth={2}
+                                  isAnimationActive={false}
+                                />
+                                <Line
+                                  yAxisId="right"
+                                  type="monotone"
+                                  dataKey="live_roi_pct"
+                                  name="Projected ROI %"
+                                  stroke={theme === 'dark' ? '#75dac0' : '#09644f'}
+                                  strokeWidth={2}
+                                  dot={false}
+                                  isAnimationActive={false}
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          )}
                         </div>
                       </section>
 
@@ -2191,21 +2764,21 @@ export function GlassyDashboard({
                               className="text-2xl font-extrabold mt-1"
                               style={{ color: 'var(--gd-teal)' }}
                             >
-                              {activeCreator ? activeCreator.rolling_sentiment.toFixed(2) : '0.85'}
+                              {activeCreator ? activeCreator.rolling_sentiment.toFixed(2) : '—'}
                             </div>
                           </div>
                           <div
                             className="p-3 rounded-xl"
                             style={{ background: 'var(--gd-inner)', border: '1px solid var(--gd-line)' }}
                           >
-                            <div className="text-[11px] opacity-75">Bot Filtered</div>
+                            <div className="text-[11px] opacity-75">Bot / Anomaly</div>
                             <div
                               className="text-2xl font-extrabold mt-1"
                               style={{ color: 'var(--gd-coral)' }}
                             >
                               {activeCreator
                                 ? `${(activeCreator.bot_anomaly_ratio * 100).toFixed(1)}%`
-                                : '0.0%'}
+                                : '—'}
                             </div>
                           </div>
                         </div>
@@ -2238,23 +2811,27 @@ export function GlassyDashboard({
                         <div className="grid grid-cols-2 gap-2 pt-2">
                           <button
                             type="button"
-                            disabled={bursting}
-                            onClick={() => handleTriggerBurst('viral')}
+                            disabled={refreshingTelemetry}
+                            onClick={handleRefreshLiveTelemetry}
                             className="gd-secondary"
                             style={{ minBlockSize: 34, fontSize: 11 }}
                           >
-                            <Zap aria-hidden="true" style={{ color: 'var(--gd-teal)' }} />
-                            Viral Spike
+                            <RefreshCw
+                              aria-hidden="true"
+                              className={refreshingTelemetry ? 'animate-spin' : ''}
+                              style={{ color: 'var(--gd-teal)' }}
+                            />
+                            Refresh Live Telemetry
                           </button>
                           <button
                             type="button"
-                            disabled={bursting}
-                            onClick={() => handleTriggerBurst('bot_spike')}
+                            disabled={auditingCreator || !influencerId}
+                            onClick={handleRunLiveBotAudit}
                             className="gd-secondary"
                             style={{ minBlockSize: 34, fontSize: 11 }}
                           >
-                            <ShieldAlert aria-hidden="true" style={{ color: 'var(--gd-coral)' }} />
-                            Bot Filter Test
+                            <ShieldCheck aria-hidden="true" style={{ color: 'var(--gd-ochre)' }} />
+                            Run Bot Audit
                           </button>
                         </div>
 
@@ -2502,17 +3079,33 @@ export function GlassyDashboard({
                       </section>
                     </div>
 
-                    {/* Interactive Click-to-Switch Channel Yield Cards */}
+                    {/* Interactive Click-to-Switch Channel Yield & Live Marketplace Feeds */}
                     <section className="gd-panel space-y-3">
                       <header className="gd-panel-head">
                         <div>
-                          <h2>Channel Yield Breakdown — Click Any Channel to Recalculate</h2>
-                          <p>Switch active storefront channel and re-score predictions instantaneously</p>
+                          <h2>Channel Yield &amp; Live Marketplace Feeds — Click Any Channel to Recalculate</h2>
+                          <p>
+                            Live Nykaa, Tira, Purplle &amp; D2C benchmarks
+                            {marketplaceFeed?.fetched_at
+                              ? ` · Synced ${new Date(marketplaceFeed.fetched_at).toLocaleTimeString()}`
+                              : ''}
+                          </p>
                         </div>
+                        <button
+                          type="button"
+                          className="gd-secondary"
+                          style={{ minBlockSize: 30, padding: '4px 10px', fontSize: 11 }}
+                          disabled={marketplaceLoading}
+                          onClick={() => fetchMarketplaceFeed(true)}
+                        >
+                          <RefreshCw className={marketplaceLoading ? 'animate-spin' : ''} aria-hidden="true" />
+                          Refresh Feeds
+                        </button>
                       </header>
                       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         {(prediction?.cross_channel_comparison || []).map((item) => {
                           const isCurrent = item.channel === targetChannel
+                          const bench = marketplaceFeed?.by_channel?.[item.channel]
                           return (
                             <button
                               key={item.channel}
@@ -2539,7 +3132,14 @@ export function GlassyDashboard({
                               </div>
                               <div
                                 className="text-xl font-extrabold mt-2"
-                                style={{ color: 'var(--gd-teal)' }}
+                                style={{
+                                  color:
+                                    item.net_roi_percent >= 45
+                                      ? 'var(--gd-teal)'
+                                      : item.net_roi_percent >= 0
+                                        ? 'var(--gd-ochre)'
+                                        : 'var(--gd-coral)',
+                                }}
                               >
                                 {item.net_roi_percent >= 0 ? '+' : ''}
                                 {item.net_roi_percent.toFixed(1)}%
@@ -2548,6 +3148,18 @@ export function GlassyDashboard({
                                 {item.predicted_conversions.toLocaleString('en-IN')} orders ·{' '}
                                 {formatMoney(item.expected_gross_revenue)}
                               </div>
+                              {item.live_cpc_inr !== undefined && (
+                                <div className="text-[10px] opacity-70 mt-0.5">
+                                  Live CPC {formatMoney(item.live_cpc_inr, 2)} · Forecast{' '}
+                                  {item.cpc !== undefined ? formatMoney(item.cpc, 2) : '—'}
+                                </div>
+                              )}
+                              {bench && (
+                                <div className="text-[10px] opacity-70 mt-0.5 truncate">
+                                  {productCategory} AOV {formatMoney(bench.category_aov_inr[productCategory] ?? 1200)} ·{' '}
+                                  {bench.active_campaign_status}
+                                </div>
+                              )}
                             </button>
                           )
                         })}
@@ -2650,6 +3262,17 @@ export function GlassyDashboard({
                               ))}
                             </select>
                           </label>
+                          {history.length > 0 && (
+                            <button
+                              type="button"
+                              className="gd-secondary"
+                              style={{ minBlockSize: 36, padding: '4px 12px', fontSize: 11.5 }}
+                              onClick={handleClearHistory}
+                            >
+                              <Trash2 aria-hidden="true" style={{ color: 'var(--gd-coral)' }} />
+                              Clear History
+                            </button>
+                          )}
                         </div>
                       </header>
 
@@ -2690,9 +3313,9 @@ export function GlassyDashboard({
                                     style={{
                                       fontWeight: 800,
                                       color:
-                                        row.net_roi_percent >= 80
+                                        verdictStateTone(row.decision_tier, row.net_roi_percent) === 'teal'
                                           ? 'var(--gd-teal)'
-                                          : row.net_roi_percent >= 0
+                                          : verdictStateTone(row.decision_tier, row.net_roi_percent) === 'ochre'
                                             ? 'var(--gd-ochre)'
                                             : 'var(--gd-coral)',
                                     }}
@@ -2703,13 +3326,7 @@ export function GlassyDashboard({
                                   <td>
                                     <span
                                       className="gd-status"
-                                      data-state={
-                                        row.net_roi_percent >= 80
-                                          ? 'teal'
-                                          : row.net_roi_percent >= 0
-                                            ? 'ochre'
-                                            : 'coral'
-                                      }
+                                      data-state={verdictStateTone(row.decision_tier, row.net_roi_percent)}
                                     >
                                       <i aria-hidden="true" />
                                       {row.decision_tier}
@@ -2733,7 +3350,9 @@ export function GlassyDashboard({
 
         <footer className="gd-footer">
           <span>
-            Signed in as {user?.email || 'Brand Operator'} · {user?.brand_name || 'KALKI Pulse'}
+            Signed in as {user?.email || 'Brand Operator'} ·{' '}
+            {youtubeLiveActive ? 'YouTube Live API Ready' : 'ROI Workspace'} ·{' '}
+            {storeMode === 'redis_live' ? 'Redis Stream' : 'Live Buffer'}
           </span>
           {backgroundCredit && (
             <button type="button" onClick={() => navigate('/')}>
@@ -2827,13 +3446,7 @@ export function GlassyDashboard({
           <div className="space-y-4">
             <span
               className="gd-status"
-              data-state={
-                modal.row.net_roi_percent >= 80
-                  ? 'teal'
-                  : modal.row.net_roi_percent >= 0
-                    ? 'ochre'
-                    : 'coral'
-              }
+              data-state={verdictStateTone(modal.row.decision_tier, modal.row.net_roi_percent)}
             >
               <i aria-hidden="true" />
               {modal.row.decision_tier}
